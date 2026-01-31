@@ -1,0 +1,28 @@
+Hi, I'm Hendrik and I'm a addict.
+
+Idea: narcissist in hall of mirrors
+my mind immediately went to Doom (1992)
+Engine with unlimited mirrors.
+Can I build it in a game jam?
+
+I wanted to use no AI in this jam.
+Started with `vim`, and typing.
+Fast switched to an IDE with "old style" code completion (no AI)
+Tried to look up "how to" on search: AI preview in my face.
+
+On Saturday, under the shower, I knew what the game should be.
+I thought of it IN SPECS
+Not IN CODE
+
+Hello Darkness my Old Friend
+
+If you believe that a thing should exist,
+You're obliged to push what you're willing to do
+To make it exist
+
+Our time on this planet is limited.
+A game jam is time-limited.
+
+But I know I cannot go back to the time before.
+Let all hope go, ye who enter here.
+Read the classics.
