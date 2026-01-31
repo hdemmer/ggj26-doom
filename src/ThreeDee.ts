@@ -1,6 +1,6 @@
 /** biome-ignore-all lint/style/noNonNullAssertion: <explanation> */
 
-import { Clut } from "@/Clut.ts";
+import { Clut, type Rgb8Color } from "@/Clut.ts";
 import { Constants } from "@/Constants.ts";
 import type { Ctx, Game } from "@/doom.ts";
 import type { IVec2 } from "@/IVec2.ts";
@@ -167,14 +167,17 @@ export class ThreeDee {
 
 						const texIdx = (texY * ceilingTex.width + texX) * 4;
 
-						const r = ceilingTex.data[texIdx]! * brightnessFactor;
-						const g = ceilingTex.data[texIdx + 1]! * brightnessFactor;
-						const b = ceilingTex.data[texIdx + 2]! * brightnessFactor;
+						const color: Rgb8Color = {
+							r: ceilingTex.data[texIdx]! * brightnessFactor,
+							g: ceilingTex.data[texIdx + 1]! * brightnessFactor,
+							b: ceilingTex.data[texIdx + 2]! * brightnessFactor,
+						};
+						ray.clut.applyMut(color);
 
 						const idx = (yCeil * Constants.LOWRES_WIDTH + x) * 3;
-						frameBuffer[idx] = r;
-						frameBuffer[idx + 1] = g;
-						frameBuffer[idx + 2] = b;
+						frameBuffer[idx] = color.r;
+						frameBuffer[idx + 1] = color.g;
+						frameBuffer[idx + 2] = color.b;
 					}
 
 					// Floor
@@ -191,14 +194,17 @@ export class ThreeDee {
 
 						const texIdx = (texY * floorTex.width + texX) * 4;
 
-						const r = floorTex.data[texIdx]! * brightnessFactor;
-						const g = floorTex.data[texIdx + 1]! * brightnessFactor;
-						const b = floorTex.data[texIdx + 2]! * brightnessFactor;
+						const color: Rgb8Color = {
+							r: floorTex.data[texIdx]! * brightnessFactor,
+							g: floorTex.data[texIdx + 1]! * brightnessFactor,
+							b: floorTex.data[texIdx + 2]! * brightnessFactor,
+						};
+						ray.clut.applyMut(color);
 
 						const idx = (yFloor * Constants.LOWRES_WIDTH + x) * 3;
-						frameBuffer[idx] = r;
-						frameBuffer[idx + 1] = g;
-						frameBuffer[idx + 2] = b;
+						frameBuffer[idx] = color.r;
+						frameBuffer[idx + 1] = color.g;
+						frameBuffer[idx + 2] = color.b;
 					}
 				}
 
@@ -218,14 +224,17 @@ export class ThreeDee {
 
 							// Sample texture and apply brightness
 							const brightnessFactor = brightness / 255;
-							const r = wallTex.data[texIdx]! * brightnessFactor;
-							const g = wallTex.data[texIdx + 1]! * brightnessFactor;
-							const b = wallTex.data[texIdx + 2]! * brightnessFactor;
+							const color: Rgb8Color = {
+								r: wallTex.data[texIdx]! * brightnessFactor,
+								g: wallTex.data[texIdx + 1]! * brightnessFactor,
+								b: wallTex.data[texIdx + 2]! * brightnessFactor,
+							};
+							ray.clut.applyMut(color);
 
 							const idx = (yWall * Constants.LOWRES_WIDTH + x) * 3;
-							frameBuffer[idx] = r;
-							frameBuffer[idx + 1] = g;
-							frameBuffer[idx + 2] = b;
+							frameBuffer[idx] = color.r;
+							frameBuffer[idx + 1] = color.g;
+							frameBuffer[idx + 2] = color.b;
 						}
 					}
 
