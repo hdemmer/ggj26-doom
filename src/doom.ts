@@ -51,7 +51,7 @@ export async function loadGameImages(): Promise<GameImages> {
 		loadImage("/assets/floor.jpg"),
 		loadImage("/assets/ceiling.jpg"),
 		loadImage("/assets/wall.jpg"),
-		loadImage("/assets/door.jpg"),
+		loadImage("/assets/door.png"),
 		loadImage("/assets/player.png"),
 		loadImage("/assets/mask.png"),
 		loadImage("/assets/frame.png"),
@@ -72,7 +72,8 @@ export async function loadGameImages(): Promise<GameImages> {
 
 export class Game {
 	public time: number = 0;
-	public readonly level: Level;
+	public levelIndex: number = 0;
+	public level: Level;
 	public readonly player: Player;
 	private readonly threeDee: ThreeDee;
 
@@ -168,9 +169,12 @@ export class Game {
 				x: Math.cos(player.angle) * moveSpeed,
 				y: Math.sin(player.angle) * moveSpeed,
 			};
-			const mirrorPassages = player.moveTo(delta, level);
+			const { mirrorPassages, hitDoor } = player.moveTo(delta, level);
 			if (mirrorPassages % 2 === 1) {
 				this.isInMirror = !this.isInMirror;
+			}
+			if (hitDoor) {
+				this.loadNextLevel();
 			}
 		}
 		if (this.keys.has("s") || this.keys.has("ArrowDown")) {
@@ -178,9 +182,12 @@ export class Game {
 				x: -Math.cos(player.angle) * moveSpeed,
 				y: -Math.sin(player.angle) * moveSpeed,
 			};
-			const mirrorPassages = player.moveTo(delta, level);
+			const { mirrorPassages, hitDoor } = player.moveTo(delta, level);
 			if (mirrorPassages % 2 === 1) {
 				this.isInMirror = !this.isInMirror;
+			}
+			if (hitDoor) {
+				this.loadNextLevel();
 			}
 		}
 
@@ -206,6 +213,25 @@ export class Game {
 
 		this.debugDrawLevel(ctx);
 		// this.debugDrawTextures(ctx);
+	}
+
+	private loadNextLevel() {
+		console.log("loadNextLevel");
+		const nextIndex = this.levelIndex + 1;
+		if (nextIndex >= LEVELS.length) {
+			return;
+		}
+		this.levelIndex = nextIndex;
+		const levelShape = LEVELS[nextIndex]!;
+		this.level = initLevelFromShape(levelShape);
+		this.player.pos = { ...this.level.playerStartPos };
+		this.player.angle = levelShape.playerStartAngle ?? 0;
+		this.isInMirror = false;
+		this.hearts.length = 0;
+		for (const pos of this.level.heartPositions) {
+			this.hearts.push(new Heart(pos, this.threeDee));
+		}
+		this.health.reset();
 	}
 
 	private debugDrawLevel(ctx: Ctx) {

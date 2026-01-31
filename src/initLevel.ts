@@ -1,10 +1,11 @@
 /** biome-ignore-all lint/style/noNonNullAssertion: asdf */
+
+import earcut from "earcut";
 import { Clut } from "@/Clut.ts";
 import type { IVec2 } from "@/IVec2.ts";
 import type { LevelShape } from "@/LevelShape.ts";
 import { Level } from "@/level.ts";
 import { Simplex } from "@/simplex.ts";
-import earcut from "earcut";
 
 function sign(p1: IVec2, p2: IVec2, p3: IVec2): number {
 	return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
@@ -168,6 +169,8 @@ export function initLevelFromShape(levelShape: LevelShape): Level {
 					}
 					if (doorIndices.includes(edgeIdx)) {
 						side.isDoor = true;
+						side.isMirror = true;
+						side.mirrorClut = Clut.makeDarken(0.5);
 					}
 					break;
 				}

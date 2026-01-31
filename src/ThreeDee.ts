@@ -192,8 +192,7 @@ export class ThreeDee {
 				dir: rayDir,
 				sideIndex: -1,
 				isTerminated: false,
-				terminalU: 0,
-				terminalSideIsDoor: false,
+				reflectionSideIsDoor: false,
 				numReflections: 0,
 				wasReflection: false,
 				reflectionU: 0,
@@ -384,7 +383,10 @@ export class ThreeDee {
 												let maskB = helmetSpriteTex.data[maskTexIdx + 2]!;
 
 												// Invert helmet colors when even number of reflections (including isInMirror)
-												if ((numReflections + (game.isInMirror ? 1 : 0)) % 2 === 0) {
+												if (
+													(numReflections + (game.isInMirror ? 1 : 0)) % 2 ===
+													0
+												) {
 													maskR = 255 - maskR;
 													maskG = 255 - maskG;
 													maskB = 255 - maskB;
@@ -417,7 +419,10 @@ export class ThreeDee {
 												let maskB = helmetSpriteTex.data[maskTexIdx + 2]!;
 
 												// Invert helmet colors when even number of reflections (including isInMirror)
-												if ((numReflections + (game.isInMirror ? 1 : 0)) % 2 === 0) {
+												if (
+													(numReflections + (game.isInMirror ? 1 : 0)) % 2 ===
+													0
+												) {
 													maskR = 255 - maskR;
 													maskG = 255 - maskG;
 													maskB = 255 - maskB;
@@ -596,6 +601,10 @@ export class ThreeDee {
 						(-wallHeight + unclampedWallHeight) * invDoubleUnclampedWallHeight;
 					const vDelta = invDoubleUnclampedWallHeight;
 
+					const frameTexToUse = ray.reflectionSideIsDoor
+						? this.doorTextureData!
+						: frameTex;
+
 					for (let yIdx = -wallHeight; yIdx < wallHeight; yIdx++) {
 						const yWall = halfHeight - yIdx;
 
@@ -610,14 +619,14 @@ export class ThreeDee {
 							else if (texY > frameTexHM1) texY = frameTexHM1;
 
 							const texIdx = texY * frameTexRowStride + texXOffset;
-							const frameAlpha = frameTex.data[texIdx + 3]!;
+							const frameAlpha = frameTexToUse.data[texIdx + 3]!;
 
 							// Only draw where frame has opacity
 							if (frameAlpha >= 10) {
 								const color: Rgb8Color = {
-									r: frameTex.data[texIdx]! * brightnessFactor,
-									g: frameTex.data[texIdx + 1]! * brightnessFactor,
-									b: frameTex.data[texIdx + 2]! * brightnessFactor,
+									r: frameTexToUse.data[texIdx]! * brightnessFactor,
+									g: frameTexToUse.data[texIdx + 1]! * brightnessFactor,
+									b: frameTexToUse.data[texIdx + 2]! * brightnessFactor,
 								};
 								clut.applyMut(color);
 
@@ -634,10 +643,8 @@ export class ThreeDee {
 
 				if (ray.isTerminated) {
 					// fill in the wall using texture
-					const u = ray.terminalU;
-					const activeTex = ray.terminalSideIsDoor
-						? this.doorTextureData!
-						: wallTex;
+					const u = ray.reflectionU;
+					const activeTex = wallTex;
 					const texX = Math.floor(u * (activeTex.width - 1)) % activeTex.width;
 
 					// Use unclamped wall height for perspective-correct texture mapping

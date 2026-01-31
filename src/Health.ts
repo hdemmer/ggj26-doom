@@ -26,4 +26,8 @@ export class Health {
 	getMultiplier(): number {
 		return (this.current / HEALTH_MAX) * 4;
 	}
+
+	reset() {
+		this.current = 0;
+	}
 }

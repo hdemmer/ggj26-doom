@@ -40,6 +40,7 @@ export function propagateRayMut(ray: Ray): void {
 				// Find the side index in the NEW simplex that connects back to the OLD simplex
 				ray.sideIndex = side.simplex.findSideIndexForSimplex(simplex);
 				ray.wasReflection = false;
+				ray.reflectionSideIsDoor = false;
 				// console.log("newSideIndex", newSideIndex);
 
 				return;
@@ -57,6 +58,7 @@ export function propagateRayMut(ray: Ray): void {
 
 					ray.numReflections++;
 					ray.wasReflection = true;
+					ray.reflectionSideIsDoor = side.isDoor;
 					ray.reflectionClut = side.mirrorClut;
 					// reflectionU is the length along the wall where the ray hit, from 0 to 1
 					ray.reflectionU =
@@ -75,10 +77,10 @@ export function propagateRayMut(ray: Ray): void {
 					ray.sideIndex = -1;
 					ray.isTerminated = true;
 					ray.wasReflection = false;
-					ray.terminalSideIsDoor = side.isDoor;
+					ray.reflectionSideIsDoor = false;
 
 					// terminalU is the length along the wall where the ray hit, from 0 to 1
-					ray.terminalU =
+					ray.reflectionU =
 						Math.hypot(
 							intersection.x - side.start.x,
 							intersection.y - side.start.y,

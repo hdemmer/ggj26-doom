@@ -8,10 +8,9 @@ export interface Ray {
 	dir: IVec2;
 	sideIndex: number; // -1 if not on a side, otherwise the index of the side we entered from
 	isTerminated: boolean;
-	terminalU: number;
-	terminalSideIsDoor: boolean;
 	wasReflection: boolean;
 	reflectionU: number; // u coordinate along the mirror wall when reflecting
+	reflectionSideIsDoor: boolean;
 	numReflections: number;
 	reflectionClut: Clut | null;
 }

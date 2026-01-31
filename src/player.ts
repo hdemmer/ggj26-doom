@@ -23,20 +23,21 @@ export class Player {
 	 * Move the player by delta, tracing through simplices like a ray.
 	 * Handles passing through portals, bouncing off mirrors, and stopping at walls.
 	 * The player position will never be outside the level.
-	 * @returns The number of mirror passages during this move.
+	 * @returns Object with mirrorPassages count and whether a door was hit.
 	 */
-	moveTo(delta: IVec2, level: Level): number {
+	moveTo(delta: IVec2, level: Level): { mirrorPassages: number; hitDoor: boolean } {
 		let simplex = level.findSimplex(this.pos);
 		if (!simplex) {
-			return 0;
+			return { mirrorPassages: 0, hitDoor: false };
 		}
 
 		const deltaLength = Math.hypot(delta.x, delta.y);
 		if (deltaLength === 0) {
-			return 0;
+			return { mirrorPassages: 0, hitDoor: false };
 		}
 
 		let mirrorPassages = 0;
+		let hitDoor = false;
 
 		let currentX = this.pos.x;
 		let currentY = this.pos.y;
@@ -119,6 +120,9 @@ export class Player {
 					currentX += dirX * stopDist;
 					currentY += dirY * stopDist;
 					remainingDist = 0;
+					if (side.isDoor) {
+						hitDoor = true;
+					}
 				}
 			} else {
 				// No hit, move full remaining distance
@@ -135,7 +139,7 @@ export class Player {
 		this.pos.x = currentX;
 		this.pos.y = currentY;
 
-		return mirrorPassages;
+		return { mirrorPassages, hitDoor };
 	}
 
 	private reflectAngle(normal: IVec2): void {

@@ -79,9 +79,9 @@ export class Level {
 			dir: { ...direction },
 			sideIndex: -1,
 			isTerminated: false,
-			terminalU: 0,
 			numReflections: 0,
 			wasReflection: false,
+			reflectionSideIsDoor: false,
 			reflectionU: 0,
 			reflectionClut: null,
 		};
