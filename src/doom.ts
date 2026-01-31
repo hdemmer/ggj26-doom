@@ -1,7 +1,8 @@
-/** biome-ignore-all lint/style/noNonNullAssertion: <explanation> */
+/** biome-ignore-all lint/style/noNonNullAssertion: asdf */
 import { Constants } from "@/Constants.ts";
 import type { IVec2 } from "@/IVec2.ts";
 import { intersectLineLine } from "@/intersectLineLine.ts";
+import { Player } from "@/player.ts";
 import { pointInTriangle } from "@/pointInTriangle.ts";
 import type { Ray } from "@/ray.ts";
 
@@ -15,6 +16,7 @@ export type Ctx = CanvasRenderingContext2D;
 export interface SimplexSide {
 	start: IVec2;
 	end: IVec2;
+	normal: IVec2;
 	simplex: Simplex | null;
 }
 
@@ -32,9 +34,17 @@ export class Simplex {
 		for (let i = 0; i < points.length; i++) {
 			const start = points[i]!;
 			const end = points[(i + 1) % points.length]!;
+			const normal = {
+				x: end.y - start.y,
+				y: start.x - end.x,
+			};
+			const length = Math.hypot(normal.x, normal.y);
+			normal.x /= length;
+			normal.y /= length;
 			sides.push({
 				start,
 				end,
+				normal,
 				simplex: null,
 			});
 		}
@@ -56,33 +66,78 @@ export class Simplex {
 		);
 	}
 
-	movePointInsideMutate(p: IVec2, d: number) {
-		// TODO: move p inside the triangle, keeping it at least d distance from the edges
+	connectSimplexOnSide(sideIndex: number, neighbor: Simplex) {
+		if (sideIndex < 0 || sideIndex >= this.sides.length) {
+			throw new Error("Invalid side index");
+		}
+		this.sides[sideIndex]!.simplex = neighbor;
+	}
+
+	findSideIndexForSimplex(simplex: Simplex): number {
+		for (let i = 0; i < this.sides.length; i++) {
+			const side = this.sides[i]!;
+			if (side.simplex === simplex) {
+				return i;
+			}
+		}
+		return -1;
 	}
 }
 
-function propagateRay(ray: Ray) {
+function propagateRayMut(ray: Ray): void {
 	const { pos, dir, simplex } = ray;
 	const target = {
 		x: pos.x + Constants.MAX_DISTANCE * dir.x,
 		y: pos.y + Constants.MAX_DISTANCE * dir.y,
 	};
 	const intersection: IVec2 = { ...Vec2.ZERO };
-	if (
-		intersectLineLine(
-			pos.x,
-			pos.y,
-			target.x,
-			target.y,
-			simplex.b.x,
-			simplex.b.y,
-			simplex.c.x,
-			simplex.c.y,
-			intersection,
-		)
-	) {
-		// we hit the b-c line (B) of this simplex
-		pos;
+	// iterate over sides
+	for (let i = 0; i < simplex.sides.length; i++) {
+		const side = simplex.sides[i]!;
+		if (
+			intersectLineLine(
+				pos.x,
+				pos.y,
+				target.x,
+				target.y,
+				side.start.x,
+				side.start.y,
+				side.end.x,
+				side.end.y,
+				intersection,
+			)
+		) {
+			// hit this side
+			if (side.simplex) {
+				// has neighbor, propagate ray
+				ray.pos.x = intersection.x;
+				ray.pos.y = intersection.y;
+				ray.simplex = side.simplex;
+				const hitSideIndex = simplex.findSideIndexForSimplex(side.simplex);
+				if (hitSideIndex !== -1) {
+					// move pos a bit into the new simplex to avoid precision issues
+					const hitSide = side.simplex.sides[hitSideIndex]!;
+					const normal = {
+						x: -hitSide.normal.x,
+						y: -hitSide.normal.y,
+					};
+					ray.pos.x += normal.x * Constants.EPSILON;
+					ray.pos.y += normal.y * Constants.EPSILON;
+				}
+
+				return;
+			} else {
+				// no neighbor, reflect ray on side normal
+				const normal = side.normal;
+				const dot = dir.x * normal.x + dir.y * normal.y;
+				dir.x = dir.x - 2 * dot * normal.x;
+				dir.y = dir.y - 2 * dot * normal.y;
+				// move pos a bit away from the wall to avoid precision issues
+				ray.pos.x = intersection.x + normal.x * Constants.EPSILON;
+				ray.pos.y = intersection.y + normal.y * Constants.EPSILON;
+				return;
+			}
+		}
 	}
 }
 
@@ -106,58 +161,40 @@ export class Level {
 		ctx.strokeStyle = "white";
 		for (let i = 0; i < this.simplices.length; i++) {
 			const simplex = this.simplices[i]!;
-			ctx.moveTo(simplex.a.x, simplex.a.y);
-			ctx.lineTo(simplex.b.x, simplex.b.y);
-			ctx.lineTo(simplex.c.x, simplex.c.y);
-			ctx.lineTo(simplex.a.x, simplex.a.y);
+			ctx.moveTo(simplex.points[0]!.x, simplex.points[0]!.y);
+			for (let j = 1; j < simplex.points.length; j++) {
+				const point = simplex.points[j]!;
+				ctx.lineTo(point.x, point.y);
+			}
+			ctx.closePath();
 			ctx.stroke();
 		}
 	}
 
-	castRay(origin: IVec2, direction: IVec2, result: CastRayResult) {
+	castRay(origin: IVec2, direction: IVec2, result: IVec2[]) {
+		result.length = 0;
 		const currentSimplex = this.findSimplex(origin);
 		if (!currentSimplex) {
-			return result;
+			return;
 		}
-		const currentOrigin = { ...origin };
-		const currentDirection = { ...direction };
-		const target: IVec2 = {
-			x: 0,
-			y: 0,
-		};
-		const intersection: IVec2 = {
-			x: 0,
-			y: 0,
+		const ray: Ray = {
+			simplex: currentSimplex,
+			pos: { ...origin },
+			dir: { ...direction },
 		};
 		for (let i = 0; i < Constants.MAX_STEPS; i++) {
-			target.x = currentOrigin.x + Constants.MAX_DISTANCE * currentDirection.x;
-			target.y = currentOrigin.y + Constants.MAX_DISTANCE * currentDirection.y;
-
-			if (
-				intersectLineLine(
-					currentOrigin.x,
-					currentOrigin.y,
-					target.x,
-					target.y,
-					currentSimplex.b.x,
-					currentSimplex.b.y,
-					currentSimplex.c.x,
-					currentSimplex.c.y,
-					intersection,
-				)
-			) {
-			}
+			result.push({ ...ray.pos });
+			propagateRayMut(ray);
 		}
 	}
 }
 
 function initLevel(): Level {
-	const root = new Simplex(
-		0,
+	const root = new Simplex(0, [
 		{ x: 100, y: 100 },
 		{ x: 200, y: 100 },
 		{ x: 100, y: 200 },
-	);
+	]);
 
 	const simplices: Simplex[] = [root];
 
@@ -166,18 +203,23 @@ function initLevel(): Level {
 		// grow side B
 		const l = 1.1 - Math.random() * 0.2;
 		const newPoint: IVec2 = {
-			x: currentSimplex.b.x + currentSimplex.c.x - l * currentSimplex.a.x,
-			y: currentSimplex.b.y + currentSimplex.c.y - l * currentSimplex.a.y,
+			x:
+				currentSimplex.points[1]!.x +
+				currentSimplex.points[2]!.x -
+				l * currentSimplex.points[0]!.x,
+			y:
+				currentSimplex.points[1]!.y +
+				currentSimplex.points[2]!.y -
+				l * currentSimplex.points[0]!.y,
 		};
 
-		const newS = new Simplex(
-			i + 1,
-			currentSimplex.b,
-			currentSimplex.c,
+		const newS = new Simplex(i + 1, [
+			currentSimplex.points[1]!,
+			currentSimplex.points[2]!,
 			newPoint,
-		);
-		currentSimplex.B = newS;
-		newS.A = currentSimplex;
+		]);
+		currentSimplex.connectSimplexOnSide(1, newS);
+		newS.connectSimplexOnSide(0, currentSimplex);
 
 		simplices.push(newS);
 
@@ -187,41 +229,70 @@ function initLevel(): Level {
 	return new Level(simplices, root);
 }
 
-export class Player {
-	public pos: IVec2 = {
-		x: 160,
-		y: 170,
-	};
+export class Game {
+	public time: number = 0;
+	private readonly level: Level;
+	private readonly player: Player;
 
-	draw(ctx: Ctx) {
-		ctx.beginPath();
-		ctx.arc(this.pos.x, this.pos.y, 10, 0, 2 * Math.PI);
-		ctx.stroke();
+	private ray: Ray | null = null;
+
+	constructor(private readonly ctx: Ctx) {
+		this.level = initLevel();
+		this.player = new Player();
 	}
-}
 
-let didInit = false;
+	tick(deltaTime: number) {
+		const { ctx } = this;
+		const { level, player } = this;
 
-export function doom(ctx: Ctx) {
-	let time = 0;
-
-	console.log("init");
-	if (didInit) {
-		return;
-	}
-	didInit = true;
-	const level = initLevel();
-	const player = new Player();
-
-	function handleRaf(t: number) {
-		time += t;
-
+		this.time += deltaTime;
 		ctx.fillStyle = "black";
 		ctx.fillRect(0, 0, Constants.WIDTH, Constants.HEIGHT);
 
 		level.draw(ctx);
 		player.draw(ctx);
 
+		if (!this.ray) {
+			const simplex = level.findSimplex(player.pos);
+			if (simplex) {
+				this.ray = {
+					pos: { ...player.pos },
+					dir: { ...player.dir },
+					simplex,
+				};
+			}
+		}
+
+		if (this.ray) {
+			const rayPoints: IVec2[] = [];
+			level.castRay(this.ray.pos, this.ray.dir, rayPoints);
+			ctx.strokeStyle = "red";
+			ctx.beginPath();
+			for (let i = 0; i < rayPoints.length; i++) {
+				const p = rayPoints[i]!;
+				if (i === 0) {
+					ctx.moveTo(p.x, p.y);
+				} else {
+					ctx.lineTo(p.x, p.y);
+				}
+			}
+			ctx.stroke();
+		}
+	}
+}
+
+let didInit = false;
+
+export function doom(ctx: Ctx) {
+	console.log("init");
+	if (didInit) {
+		return;
+	}
+	didInit = true;
+	const game = new Game(ctx);
+
+	function handleRaf(t: number) {
+		game.tick(t);
 		requestAnimationFrame(handleRaf);
 	}
 
