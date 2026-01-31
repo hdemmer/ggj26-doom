@@ -204,13 +204,17 @@ export class ThreeDee {
 					const u = ray.terminalU;
 					const texX = Math.floor(u * (wallTex.width - 1)) % wallTex.width;
 
+					// Use unclamped wall height for perspective-correct texture mapping
+					const unclampedWallHeight = (Constants.LOWRES_HEIGHT * 30) / distance;
+
 					for (let yIdx = -1 * wallHeight; yIdx < wallHeight; yIdx++) {
 						const yWall = halfHeight - yIdx;
 
 						if (yWall >= 0 && yWall < Constants.LOWRES_HEIGHT) {
-							// Calculate V coordinate (0 at top, 1 at bottom)
-							const v = (yIdx + wallHeight) / (2 * wallHeight);
-							const texY = Math.floor(v * (wallTex.height - 1));
+							// Calculate V coordinate using unclamped height for perspective correction
+							// This ensures correct texture mapping even when close to walls
+							const v = (yIdx + unclampedWallHeight) / (2 * unclampedWallHeight);
+							const texY = Math.max(0, Math.min(wallTex.height - 1, Math.floor(v * (wallTex.height - 1))));
 							const texIdx = (texY * wallTex.width + texX) * 4;
 
 							// Sample texture and apply brightness
