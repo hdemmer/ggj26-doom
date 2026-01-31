@@ -84,6 +84,8 @@ export class ThreeDee {
 			this.textureCanvas.width = img.width;
 			this.textureCanvas.height = img.height;
 		}
+		// Clear canvas before drawing to prevent previous texture bleeding through transparent areas
+		this.textureCtx.clearRect(0, 0, img.width, img.height);
 		this.textureCtx.drawImage(img, 0, 0);
 		return this.textureCtx.getImageData(0, 0, img.width, img.height);
 	}
