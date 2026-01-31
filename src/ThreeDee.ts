@@ -63,7 +63,12 @@ export class ThreeDee {
 		this.offscreenCtx = this.offscreenCanvas.getContext("2d")!;
 	}
 
-	addSprite(pos: IVec2, size: number, angle: number = 0, type: SpriteType = "player"): Sprite {
+	addSprite(
+		pos: IVec2,
+		size: number,
+		angle: number = 0,
+		type: SpriteType = "player",
+	): Sprite {
 		const sprite: Sprite = {
 			pos: { ...pos },
 			size,
@@ -121,7 +126,7 @@ export class ThreeDee {
 		}
 	}
 
-	update() {
+	update(vignetteMultiply: number = 0) {
 		const { game, frameBuffer, rayPoints } = this;
 		const player = game.player;
 		const level = game.level;
@@ -244,7 +249,9 @@ export class ThreeDee {
 
 							if (sprite.type === "heart") {
 								// Render heart sprite
-								const heartTexX = Math.floor(hit.u * (heartSpriteTex.width - 1));
+								const heartTexX = Math.floor(
+									hit.u * (heartSpriteTex.width - 1),
+								);
 
 								for (let yIdx = -spriteHeight; yIdx < spriteHeight; yIdx++) {
 									const yScreen = halfHeight - yIdx + Constants.PLAYER_Y_FUDGE;
@@ -300,7 +307,9 @@ export class ThreeDee {
 								const playerTexX = Math.floor(
 									playerU * (playerSpriteTex.width - 1),
 								);
-								const maskTexX = Math.floor(hit.u * (helmetSpriteTex.width - 1));
+								const maskTexX = Math.floor(
+									hit.u * (helmetSpriteTex.width - 1),
+								);
 
 								// Check if sprite is facing the camera (use segmentDir, not ray.dir which may be reflected)
 								const spriteFacingDir: IVec2 = {
@@ -368,9 +377,16 @@ export class ThreeDee {
 											}
 											// Draw helmet on top
 											if (maskAlpha >= 10) {
-												const maskR = helmetSpriteTex.data[maskTexIdx]!;
-												const maskG = helmetSpriteTex.data[maskTexIdx + 1]!;
-												const maskB = helmetSpriteTex.data[maskTexIdx + 2]!;
+												let maskR = helmetSpriteTex.data[maskTexIdx]!;
+												let maskG = helmetSpriteTex.data[maskTexIdx + 1]!;
+												let maskB = helmetSpriteTex.data[maskTexIdx + 2]!;
+
+												// Invert helmet colors when even number of reflections
+												if (numReflections % 2 === 0) {
+													maskR = 255 - maskR;
+													maskG = 255 - maskG;
+													maskB = 255 - maskB;
+												}
 
 												if (maskR === 255 && maskG === 255 && maskB === 255) {
 													whiteHelmetPixelCount++;
@@ -392,9 +408,16 @@ export class ThreeDee {
 										} else {
 											// Draw helmet first (bottom layer)
 											if (maskAlpha >= 10) {
-												const maskR = helmetSpriteTex.data[maskTexIdx]!;
-												const maskG = helmetSpriteTex.data[maskTexIdx + 1]!;
-												const maskB = helmetSpriteTex.data[maskTexIdx + 2]!;
+												let maskR = helmetSpriteTex.data[maskTexIdx]!;
+												let maskG = helmetSpriteTex.data[maskTexIdx + 1]!;
+												let maskB = helmetSpriteTex.data[maskTexIdx + 2]!;
+
+												// Invert helmet colors when even number of reflections
+												if (numReflections % 2 === 0) {
+													maskR = 255 - maskR;
+													maskG = 255 - maskG;
+													maskB = 255 - maskB;
+												}
 
 												if (maskR === 255 && maskG === 255 && maskB === 255) {
 													whiteHelmetPixelCount++;
@@ -589,7 +612,9 @@ export class ThreeDee {
 				if (ray.isTerminated) {
 					// fill in the wall using texture
 					const u = ray.terminalU;
-					const activeTex = ray.terminalSideIsDoor ? this.doorTextureData! : wallTex;
+					const activeTex = ray.terminalSideIsDoor
+						? this.doorTextureData!
+						: wallTex;
 					const texX = Math.floor(u * (activeTex.width - 1)) % activeTex.width;
 
 					// Use unclamped wall height for perspective-correct texture mapping
@@ -651,6 +676,43 @@ export class ThreeDee {
 					clut.multiplyMut(ray.reflectionClut);
 				}
 				numReflections = ray.numReflections;
+			}
+		}
+
+		// Apply vignette effect
+		if (vignetteMultiply !== 0) {
+			const centerX = Constants.LOWRES_WIDTH / 2;
+			const centerY = Constants.LOWRES_HEIGHT / 2;
+			const maxDist = Math.hypot(centerX, centerY);
+
+			for (let y = 0; y < Constants.LOWRES_HEIGHT; y++) {
+				for (let x = 0; x < Constants.LOWRES_WIDTH; x++) {
+					const dx = x - centerX;
+					const dy = y - centerY;
+					const dist = Math.hypot(dx, dy) / maxDist;
+
+					// Quadratic falloff for more natural vignette
+					const vignette = dist * dist;
+
+					const idx = (y * Constants.LOWRES_WIDTH + x) * 4;
+
+					if (vignetteMultiply < 0) {
+						// Darken towards black at edges
+						const factor = 1 - vignette * Math.abs(vignetteMultiply);
+						frameBuffer[idx] = frameBuffer[idx]! * factor;
+						frameBuffer[idx + 1] = frameBuffer[idx + 1]! * factor;
+						frameBuffer[idx + 2] = frameBuffer[idx + 2]! * factor;
+					} else {
+						// Lighten towards white at edges
+						const factor = vignette * vignetteMultiply;
+						frameBuffer[idx] =
+							frameBuffer[idx]! + (255 - frameBuffer[idx]!) * factor;
+						frameBuffer[idx + 1] =
+							frameBuffer[idx + 1]! + (255 - frameBuffer[idx + 1]!) * factor;
+						frameBuffer[idx + 2] =
+							frameBuffer[idx + 2]! + (255 - frameBuffer[idx + 2]!) * factor;
+					}
+				}
 			}
 		}
 

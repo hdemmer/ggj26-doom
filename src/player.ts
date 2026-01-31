@@ -44,6 +44,7 @@ export class Player {
 		let dirY = delta.y / deltaLength;
 		let remainingDist = deltaLength;
 		let sideIndex = -1;
+		let isSliding = false;
 
 		const intersection: IVec2 = { x: 0, y: 0 };
 		const maxIterations = 10;
@@ -94,6 +95,7 @@ export class Player {
 					remainingDist -= hitDist;
 					sideIndex = side.simplex.findSideIndexForSimplex(simplex);
 					simplex = side.simplex;
+					isSliding = false;
 					if (side.isMirror) {
 						mirrorPassages++;
 					}
@@ -113,12 +115,41 @@ export class Player {
 
 					mirrorPassages++;
 					sideIndex = hitSideIndex;
+					isSliding = false;
+				} else if (isSliding) {
+					// Already sliding, just stop at the wall
+					currentX += dirX * hitDist;
+					currentY += dirY * hitDist;
+					remainingDist = 0;
 				} else {
-					// Hit wall - stop at wall minus player size
+					// Hit wall - slide along it
 					const stopDist = Math.max(0, hitDist - this.size);
 					currentX += dirX * stopDist;
 					currentY += dirY * stopDist;
-					remainingDist = 0;
+					remainingDist -= stopDist;
+
+					if (remainingDist > 0.001) {
+						// Calculate wall direction (tangent)
+						const wallDx = side.end.x - side.start.x;
+						const wallDy = side.end.y - side.start.y;
+						const wallLen = Math.hypot(wallDx, wallDy);
+						const wallDirX = wallDx / wallLen;
+						const wallDirY = wallDy / wallLen;
+
+						// Project movement direction onto wall direction
+						const slideAmount = dirX * wallDirX + dirY * wallDirY;
+
+						// New direction is along the wall
+						dirX = wallDirX * Math.sign(slideAmount);
+						dirY = wallDirY * Math.sign(slideAmount);
+
+						// Scale remaining distance by how parallel we were to the wall
+						remainingDist *= Math.abs(slideAmount);
+
+						// Mark this side to avoid re-hitting it immediately
+						sideIndex = hitSideIndex;
+						isSliding = true;
+					}
 				}
 			} else {
 				// No hit, move full remaining distance

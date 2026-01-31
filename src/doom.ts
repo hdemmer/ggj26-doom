@@ -1,6 +1,7 @@
 /** biome-ignore-all lint/style/noNonNullAssertion: asdf */
 
 import { Constants } from "@/Constants.ts";
+import { Health } from "@/Health.ts";
 import { Heart } from "@/Heart.ts";
 import type { IVec2 } from "@/IVec2.ts";
 import { initLevel, initLevelFromShape } from "@/initLevel.ts";
@@ -88,6 +89,7 @@ export class Game {
 	public readonly frameImage: HTMLImageElement;
 	public readonly heartSpriteImage: HTMLImageElement;
 	public readonly playerSprite: Sprite;
+	public readonly health: Health = new Health();
 	public readonly hearts: Heart[] = [];
 	public isInMirror: boolean = false;
 
@@ -182,6 +184,8 @@ export class Game {
 			}
 		}
 
+		this.health.update(deltaTime, this.isInMirror);
+
 		this.playerSprite.pos.x = player.pos.x;
 		this.playerSprite.pos.y = player.pos.y;
 		this.playerSprite.size = player.size;
@@ -189,7 +193,7 @@ export class Game {
 		this.playerSprite.distanceTravelled = player.distanceTravelled;
 
 		this.castRay();
-		this.threeDee.update();
+		this.threeDee.update(this.health.getMultiplier());
 
 		ctx.fillStyle = "black";
 		ctx.fillRect(0, 0, Constants.WIDTH, Constants.HEIGHT);

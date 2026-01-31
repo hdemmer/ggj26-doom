@@ -147,6 +147,8 @@
         <div class="tool-group">
             <button id="btn-delete" class="secondary">Delete Selected</button>
             <button id="btn-clear" class="secondary">Clear All</button>
+            <button id="btn-load" class="secondary">Load JSON</button>
+            <button id="btn-snap" class="active">Snap: 10</button>
         </div>
 
         <div class="tool-group" style="align-items: center;">
@@ -176,17 +178,17 @@
 
         const POINT_RADIUS = 8;
         const GRID_SIZE = 10;
-        const ZOOM = 20;
+        const ZOOM = 5;
 
         let level = {
             polyline: [
-                { x: 10, y: 5 },
-                { x: 20, y: 5 },
-                { x: 20, y: 15 },
-                { x: 10, y: 15 }
+                { x: 10, y: 10 },
+                { x: 20, y: 10 },
+                { x: 20, y: 20 },
+                { x: 10, y: 20 }
             ],
             heartPositions: [],
-            playerStartPos: { x: 15, y: 10 },
+            playerStartPos: { x: 15, y: 15 },
             playerStartAngle: 0,
             mirrorIndices: [],
             doorIndices: []
@@ -196,6 +198,7 @@
         let dragging = null;
         let selected = null;
         let selectedEdge = null;
+        let snapEnabled = true;
 
         // Tool buttons
         const btnPolyline = document.getElementById('btn-polyline');
@@ -312,8 +315,41 @@
             }
         };
 
+        const btnSnap = document.getElementById('btn-snap');
+        btnSnap.onclick = () => {
+            snapEnabled = !snapEnabled;
+            btnSnap.textContent = snapEnabled ? 'Snap: 10' : 'Snap: 1';
+            btnSnap.classList.toggle('active', snapEnabled);
+        };
+
+        const btnLoad = document.getElementById('btn-load');
+        btnLoad.onclick = () => {
+            const json = window.prompt('Paste level JSON:');
+            if (json) {
+                try {
+                    const loaded = JSON.parse(json);
+                    level = {
+                        polyline: loaded.polyline || [],
+                        heartPositions: loaded.heartPositions || [],
+                        playerStartPos: loaded.playerStartPos || { x: 15, y: 10 },
+                        playerStartAngle: loaded.playerStartAngle || 0,
+                        mirrorIndices: loaded.mirrorIndices || [],
+                        doorIndices: loaded.doorIndices || []
+                    };
+                    selected = null;
+                    selectedEdge = null;
+                    angleInput.value = level.playerStartAngle.toString();
+                    render();
+                    updateOutput();
+                } catch (e) {
+                    alert('Invalid JSON: ' + e.message);
+                }
+            }
+        };
+
         function snapToGrid(val) {
-            return Math.round(val / GRID_SIZE) * GRID_SIZE;
+            const size = snapEnabled ? GRID_SIZE : 1;
+            return Math.round(val / size) * size;
         }
 
         function getMousePos(e) {
