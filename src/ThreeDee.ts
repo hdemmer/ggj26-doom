@@ -120,7 +120,7 @@ export class ThreeDee {
 				distance *= Math.cos(angleOffset);
 				const wallHeight = Math.min(
 					Constants.LOWRES_HEIGHT,
-					(Constants.LOWRES_HEIGHT * 50) / distance, // the "50" determines how high the walls feel
+					(Constants.LOWRES_HEIGHT * 30) / distance, // the "30" determines how high the walls feel
 				);
 
 				const unclampedBrightness =
@@ -149,8 +149,12 @@ export class ThreeDee {
 
 				if (ray.isTerminated) {
 					// fill in the wall
-					for (let yIdx = 0; yIdx < wallHeight; yIdx++) {
-						const yWall = halfHeight + yIdx;
+					for (
+						let yIdx = Math.floor(-0.5 * wallHeight);
+						yIdx < wallHeight * 0.5;
+						yIdx++
+					) {
+						const yWall = halfHeight - yIdx;
 
 						if (yWall >= 0 && yWall < Constants.LOWRES_HEIGHT) {
 							const idx = (yWall * Constants.LOWRES_WIDTH + x) * 3;
