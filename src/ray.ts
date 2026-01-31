@@ -8,6 +8,7 @@ export interface Ray {
 	dir: IVec2;
 	sideIndex: number; // -1 if not on a side, otherwise the index of the side we entered from
 	isTerminated: boolean;
+	terminalU: number;
 	clut: Clut | null;
 	numReflections: number;
 }

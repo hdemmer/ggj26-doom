@@ -69,6 +69,14 @@ export function propagateRayMut(ray: Ray): void {
 					ray.pos.y = intersection.y;
 					ray.sideIndex = -1;
 					ray.isTerminated = true;
+
+					// terminalU is the length along the wall where the ray hit, from 0 to 1
+					ray.terminalU =
+						Math.hypot(
+							intersection.x - side.start.x,
+							intersection.y - side.start.y,
+						) /
+						Math.hypot(side.end.x - side.start.x, side.end.y - side.start.y);
 					return;
 				}
 			}

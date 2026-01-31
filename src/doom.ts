@@ -132,6 +132,7 @@ export class Level {
 			dir: { ...direction },
 			sideIndex: -1,
 			isTerminated: false,
+			terminalU: 0,
 			clut,
 			numReflections: 0,
 		};

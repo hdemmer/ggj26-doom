@@ -102,6 +102,7 @@ export class ThreeDee {
 				dir: rayDir,
 				sideIndex: -1,
 				isTerminated: false,
+				terminalU: 0,
 				clut,
 				numReflections: 0,
 			};
@@ -143,14 +144,20 @@ export class ThreeDee {
 
 				if (ray.isTerminated) {
 					// fill in the wall
+
+					const terminalBrightness = Math.max(
+						0,
+						Math.min(255, brightness * ray.terminalU),
+					);
+
 					for (let yIdx = -1 * wallHeight; yIdx < wallHeight; yIdx++) {
 						const yWall = halfHeight - yIdx;
 
 						if (yWall >= 0 && yWall < Constants.LOWRES_HEIGHT) {
 							const idx = (yWall * Constants.LOWRES_WIDTH + x) * 3;
-							frameBuffer[idx] = brightness;
-							frameBuffer[idx + 1] = brightness;
-							frameBuffer[idx + 2] = brightness;
+							frameBuffer[idx] = terminalBrightness;
+							frameBuffer[idx + 1] = terminalBrightness;
+							frameBuffer[idx + 2] = terminalBrightness;
 						}
 					}
 
