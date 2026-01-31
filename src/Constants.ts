@@ -4,4 +4,5 @@ export const Constants = {
 	EPSILON: 0.01,
 	MAX_DISTANCE: 10000,
 	MAX_STEPS: 100,
+	FOV: Math.PI / 3,
 };

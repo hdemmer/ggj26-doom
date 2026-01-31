@@ -6,6 +6,7 @@ import { intersectLineLine } from "@/intersectLineLine.ts";
 import { Player } from "@/player.ts";
 import { pointInTriangle } from "@/pointInTriangle.ts";
 import type { Ray } from "@/ray.ts";
+import { ThreeDee } from "@/ThreeDee.ts";
 
 // biome-ignore lint/complexity/noStaticOnlyClass: asdf
 export class Vec2 {
@@ -197,8 +198,9 @@ export class Level {
 
 export class Game {
 	public time: number = 0;
-	private readonly level: Level;
-	private readonly player: Player;
+	public readonly level: Level;
+	public readonly player: Player;
+	private readonly threeDee: ThreeDee;
 
 	private rayPoints: IVec2[] = [];
 
@@ -206,12 +208,17 @@ export class Game {
 		this.level = initLevel();
 		this.player = new Player();
 
+		this.threeDee = new ThreeDee(this);
+
 		this.castRay();
+		this.threeDee.update();
 	}
 
 	tick(deltaTime: number) {
 		const { ctx } = this;
 		const { level, player } = this;
+
+		this.threeDee.draw(ctx);
 
 		this.time += deltaTime;
 		ctx.fillStyle = "black";
