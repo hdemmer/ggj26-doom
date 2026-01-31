@@ -135,15 +135,47 @@ export class ThreeDee {
 					255 / (0.01 * distance) / (ray.numReflections + 1);
 				const brightness = Math.max(0, Math.min(255, unclampedBrightness));
 
-				// Fill floor and ceiling
+				// Fill ceiling
 				for (let yIdx = wallHeight; yIdx < previousWallHeight; yIdx++) {
 					const yCeil = halfHeight - yIdx;
 
 					if (yCeil >= 0 && yCeil < Constants.LOWRES_HEIGHT) {
+						// Calculate distance for this ceiling row
+						// Inverse of: wallHeight = (LOWRES_HEIGHT * 30) / (distance * cos(angleOffset))
+						const rowDist =
+							(Constants.LOWRES_HEIGHT * 30) / yIdx / Math.cos(angleOffset);
+
+						// World position along the ray at this distance
+						const worldX = (player.pos.x + rayDir.x * rowDist) / 100;
+						const worldY = (player.pos.y + rayDir.y * rowDist) / 100;
+
+						// Texture coordinates (tile the texture in world space)
+						const texX =
+							((Math.floor(worldX * ceilingTex.width) % ceilingTex.width) +
+								ceilingTex.width) %
+							ceilingTex.width;
+						const texY =
+							((Math.floor(worldY * ceilingTex.height) % ceilingTex.height) +
+								ceilingTex.height) %
+							ceilingTex.height;
+
+						const texIdx = (texY * ceilingTex.width + texX) * 4;
+
+						// Apply brightness based on distance
+						const rowBrightness = Math.max(
+							0,
+							Math.min(255, 255 / (0.01 * rowDist)),
+						);
+						const brightnessFactor = rowBrightness / 255;
+
+						const r = ceilingTex.data[texIdx]! * brightnessFactor;
+						const g = ceilingTex.data[texIdx + 1]! * brightnessFactor;
+						const b = ceilingTex.data[texIdx + 2]! * brightnessFactor;
+
 						const idx = (yCeil * Constants.LOWRES_WIDTH + x) * 3;
-						frameBuffer[idx] = brightness;
-						frameBuffer[idx + 1] = brightness;
-						frameBuffer[idx + 2] = brightness;
+						frameBuffer[idx] = r;
+						frameBuffer[idx + 1] = g;
+						frameBuffer[idx + 2] = b;
 					}
 				}
 
