@@ -206,6 +206,31 @@ export class Level {
 	}
 }
 
+export interface GameImages {
+	floor: HTMLImageElement;
+	ceiling: HTMLImageElement;
+	wall: HTMLImageElement;
+}
+
+function loadImage(src: string): Promise<HTMLImageElement> {
+	return new Promise((resolve, reject) => {
+		const img = new Image();
+		img.onload = () => resolve(img);
+		img.onerror = reject;
+		img.src = src;
+	});
+}
+
+export async function loadGameImages(): Promise<GameImages> {
+	const [floor, ceiling, wall] = await Promise.all([
+		loadImage("/assets/floor.jpg"),
+		loadImage("/assets/ceiling.jpg"),
+		loadImage("/assets/wall.jpg"),
+	]);
+	console.log("All images loaded");
+	return { floor, ceiling, wall };
+}
+
 export class Game {
 	public time: number = 0;
 	public readonly level: Level;
@@ -216,35 +241,22 @@ export class Game {
 
 	private keys: Set<string> = new Set();
 
-	// Debug images
 	public readonly floorImage: HTMLImageElement;
 	public readonly ceilingImage: HTMLImageElement;
 	public readonly wallImage: HTMLImageElement;
-	private imagesLoaded = 0;
 
-	constructor(private readonly ctx: Ctx) {
+	constructor(
+		private readonly ctx: Ctx,
+		images: GameImages,
+	) {
 		this.level = initLevel();
 		this.player = new Player();
 
+		this.floorImage = images.floor;
+		this.ceilingImage = images.ceiling;
+		this.wallImage = images.wall;
+
 		this.threeDee = new ThreeDee(this);
-
-		// Load debug images
-		this.floorImage = new Image();
-		this.ceilingImage = new Image();
-		this.wallImage = new Image();
-
-		const onLoad = () => {
-			this.imagesLoaded++;
-			console.log(`Image loaded (${this.imagesLoaded}/3)`);
-		};
-
-		this.floorImage.onload = onLoad;
-		this.ceilingImage.onload = onLoad;
-		this.wallImage.onload = onLoad;
-
-		this.floorImage.src = "/assets/floor.jpg";
-		this.ceilingImage.src = "/assets/ceiling.jpg";
-		this.wallImage.src = "/assets/wall.jpg";
 
 		this.castRay();
 		this.threeDee.update();
@@ -295,13 +307,6 @@ export class Game {
 		ctx.fillStyle = "black";
 		ctx.fillRect(0, 0, Constants.WIDTH, Constants.HEIGHT);
 
-		if (this.imagesLoaded < 3) {
-			ctx.fillStyle = "white";
-			ctx.font = "24px monospace";
-			ctx.fillText("Loading...", Constants.WIDTH / 2 - 60, Constants.HEIGHT / 2);
-			return;
-		}
-
 		this.threeDee.draw(ctx);
 
 		level.draw(ctx);
@@ -323,40 +328,37 @@ export class Game {
 	}
 
 	private debugDrawTextures(ctx: Ctx) {
-		// Debug: draw loaded images as thumbnails
-		if (this.imagesLoaded === 3) {
-			const thumbSize = 64;
-			const padding = 10;
-			ctx.drawImage(this.floorImage, padding, padding, thumbSize, thumbSize);
-			ctx.drawImage(
-				this.ceilingImage,
-				padding + thumbSize + padding,
-				padding,
-				thumbSize,
-				thumbSize,
-			);
-			ctx.drawImage(
-				this.wallImage,
-				padding + (thumbSize + padding) * 2,
-				padding,
-				thumbSize,
-				thumbSize,
-			);
+		const thumbSize = 64;
+		const padding = 10;
+		ctx.drawImage(this.floorImage, padding, padding, thumbSize, thumbSize);
+		ctx.drawImage(
+			this.ceilingImage,
+			padding + thumbSize + padding,
+			padding,
+			thumbSize,
+			thumbSize,
+		);
+		ctx.drawImage(
+			this.wallImage,
+			padding + (thumbSize + padding) * 2,
+			padding,
+			thumbSize,
+			thumbSize,
+		);
 
-			ctx.fillStyle = "white";
-			ctx.font = "10px monospace";
-			ctx.fillText("floor", padding, padding + thumbSize + 12);
-			ctx.fillText(
-				"ceiling",
-				padding + thumbSize + padding,
-				padding + thumbSize + 12,
-			);
-			ctx.fillText(
-				"wall",
-				padding + (thumbSize + padding) * 2,
-				padding + thumbSize + 12,
-			);
-		}
+		ctx.fillStyle = "white";
+		ctx.font = "10px monospace";
+		ctx.fillText("floor", padding, padding + thumbSize + 12);
+		ctx.fillText(
+			"ceiling",
+			padding + thumbSize + padding,
+			padding + thumbSize + 12,
+		);
+		ctx.fillText(
+			"wall",
+			padding + (thumbSize + padding) * 2,
+			padding + thumbSize + 12,
+		);
 	}
 
 	castRay() {
@@ -381,13 +383,15 @@ export class Game {
 
 let didInit = false;
 
-export function doom(ctx: Ctx) {
+export async function doom(ctx: Ctx) {
 	console.log("init");
 	if (didInit) {
 		return;
 	}
 	didInit = true;
-	const game = new Game(ctx);
+
+	const images = await loadGameImages();
+	const game = new Game(ctx, images);
 	(window as any).game = game;
 
 	function handleRaf(t: number) {

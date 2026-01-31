@@ -46,18 +46,14 @@ export class ThreeDee {
 		return this.textureCtx.getImageData(0, 0, img.width, img.height);
 	}
 
-	private ensureTexturesLoaded(): boolean {
+	private ensureTexturesExtracted(): void {
 		const { game } = this;
-		if (!game.floorImage.complete || !game.ceilingImage.complete) {
-			return false;
-		}
 		if (!this.floorTextureData) {
 			this.floorTextureData = this.extractTextureData(game.floorImage);
 		}
 		if (!this.ceilingTextureData) {
 			this.ceilingTextureData = this.extractTextureData(game.ceilingImage);
 		}
-		return true;
 	}
 
 	update() {
@@ -69,7 +65,8 @@ export class ThreeDee {
 		frameBuffer.fill(0);
 
 		// Draw floor and ceiling
-		if (this.ensureTexturesLoaded()) {
+		this.ensureTexturesExtracted();
+		{
 			const floorTex = this.floorTextureData!;
 			const ceilingTex = this.ceilingTextureData!;
 			const halfHeight = Constants.LOWRES_HEIGHT / 2;
