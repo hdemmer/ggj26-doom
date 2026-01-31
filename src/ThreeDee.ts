@@ -9,8 +9,13 @@ export class ThreeDee {
 	private readonly rayPoints: IVec2[] = [];
 
 	constructor(public readonly game: Game) {
-		this.frameBuffer = new Uint8Array(Constants.WIDTH * Constants.HEIGHT * 3);
-		this.imageData = new ImageData(Constants.WIDTH, Constants.HEIGHT);
+		this.frameBuffer = new Uint8Array(
+			Constants.LOWRES_WIDTH * Constants.LOWRES_HEIGHT * 3,
+		);
+		this.imageData = new ImageData(
+			Constants.LOWRES_WIDTH,
+			Constants.LOWRES_HEIGHT,
+		);
 	}
 
 	update() {
@@ -21,18 +26,16 @@ export class ThreeDee {
 		// Clear frame buffer
 		frameBuffer.fill(0);
 
-		const halfFov = Constants.FOV / 2;
-
-		for (let x = 0; x < Constants.WIDTH; x++) {
+		for (let x = 0; x < Constants.LOWRES_WIDTH; x++) {
 			// Map x from [0, WIDTH-1] to [-FOV/2, FOV/2]
-			const angleOffset = (x / (Constants.WIDTH - 1) - 0.5) * Constants.FOV;
+			const angleOffset =
+				(x / (Constants.LOWRES_WIDTH - 1) - 0.5) * Constants.FOV;
 
-			// Rotate player direction by angleOffset
-			const cos = Math.cos(angleOffset);
-			const sin = Math.sin(angleOffset);
+			// Calculate ray direction from player angle + offset
+			const rayAngle = player.angle + angleOffset;
 			const rayDir: IVec2 = {
-				x: player.dir.x * cos - player.dir.y * sin,
-				y: player.dir.x * sin + player.dir.y * cos,
+				x: Math.cos(rayAngle),
+				y: Math.sin(rayAngle),
 			};
 
 			// Cast ray
@@ -40,28 +43,34 @@ export class ThreeDee {
 
 			if (rayPoints.length >= 2) {
 				// Distance to first wall hit
-				const dx = rayPoints[1]!.x - rayPoints[0]!.x;
-				const dy = rayPoints[1]!.y - rayPoints[0]!.y;
-				let distance = Math.hypot(dx, dy);
+				let distanceSum = 0;
+				for (let i = 1; i < rayPoints.length; i++) {
+					const dx = rayPoints[i]!.x - rayPoints[i - 1]!.x;
+					const dy = rayPoints[i]!.y - rayPoints[i - 1]!.y;
+					distanceSum += Math.hypot(dx, dy);
+				}
+				let distance = distanceSum;
 
 				// Fisheye correction: multiply by cos of angle offset
 				distance *= Math.cos(angleOffset);
 
 				// Calculate wall height (inverse proportion to distance)
 				const wallHeight = Math.min(
-					Constants.HEIGHT,
-					(Constants.HEIGHT * 5) / distance,
+					Constants.LOWRES_HEIGHT,
+					(Constants.LOWRES_HEIGHT * 50) / distance,
 				);
 
-				const wallTop = Math.floor((Constants.HEIGHT - wallHeight) / 2);
-				const wallBottom = Math.floor((Constants.HEIGHT + wallHeight) / 2);
+				const wallTop = Math.floor((Constants.LOWRES_HEIGHT - wallHeight) / 2);
+				const wallBottom = Math.floor(
+					(Constants.LOWRES_HEIGHT + wallHeight) / 2,
+				);
 
 				// Brightness based on distance
-				const brightness = Math.max(0, Math.min(255, 255 - distance * 5));
+				const brightness = Math.max(0, Math.min(255, 255 - distance * 2));
 
 				// Fill vertical column
 				for (let y = wallTop; y < wallBottom; y++) {
-					const idx = (y * Constants.WIDTH + x) * 3;
+					const idx = (y * Constants.LOWRES_WIDTH + x) * 3;
 					frameBuffer[idx] = brightness;
 					frameBuffer[idx + 1] = brightness;
 					frameBuffer[idx + 2] = brightness;
@@ -74,7 +83,7 @@ export class ThreeDee {
 		const { frameBuffer, imageData } = this;
 		const rgba = imageData.data;
 
-		for (let i = 0; i < Constants.WIDTH * Constants.HEIGHT; i++) {
+		for (let i = 0; i < Constants.LOWRES_WIDTH * Constants.LOWRES_HEIGHT; i++) {
 			const srcIdx = i * 3;
 			const dstIdx = i * 4;
 			rgba[dstIdx] = frameBuffer[srcIdx]!;

@@ -257,9 +257,13 @@ export class Game {
 		this.rayPoints.length = 0;
 		const simplex = level.findSimplex(player.pos);
 		if (simplex) {
+			const dir = {
+				x: Math.cos(player.angle),
+				y: Math.sin(player.angle),
+			};
 			const ray = {
 				pos: { ...player.pos },
-				dir: { ...player.dir },
+				dir,
 				simplex,
 			};
 
