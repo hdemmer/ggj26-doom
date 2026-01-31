@@ -107,7 +107,7 @@ export class Level {
 	}
 
 	draw(ctx: Ctx) {
-		ctx.strokeStyle = "white";
+		ctx.strokeStyle = "blue";
 		for (let i = 0; i < this.simplices.length; i++) {
 			const simplex = this.simplices[i]!;
 			ctx.moveTo(simplex.points[0]!.x, simplex.points[0]!.y);

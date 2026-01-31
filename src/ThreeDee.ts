@@ -118,9 +118,11 @@ export class ThreeDee {
 				let distance = distanceSum;
 				// Fisheye correction: multiply by cos of angle offset
 				distance *= Math.cos(angleOffset);
-				const wallHeight = Math.min(
-					Constants.LOWRES_HEIGHT,
-					(Constants.LOWRES_HEIGHT * 30) / distance, // the "30" determines how high the walls feel
+				const wallHeight = Math.floor(
+					Math.min(
+						Constants.LOWRES_HEIGHT,
+						(Constants.LOWRES_HEIGHT * 30) / distance, // the "30" determines how high the walls feel
+					),
 				);
 
 				const unclampedBrightness =
@@ -128,32 +130,20 @@ export class ThreeDee {
 				const brightness = Math.max(0, Math.min(255, unclampedBrightness));
 
 				// Fill floor and ceiling
-				// for (let yIdx = 0; yIdx < previousWallHeight; yIdx++) {
-				// 	const yCeil = yIdx;
-				//
-				// 	if (yCeil >= 0 && yCeil < Constants.LOWRES_HEIGHT) {
-				// 		const idx = (yCeil * Constants.LOWRES_WIDTH + x) * 3;
-				// 		frameBuffer[idx] = brightness;
-				// 		frameBuffer[idx + 1] = brightness;
-				// 		frameBuffer[idx + 2] = brightness;
-				// 	}
-				//
-				// 	const yFloor = Constants.LOWRES_HEIGHT - yIdx;
-				// 	if (yFloor >= 0 && yFloor < Constants.LOWRES_HEIGHT) {
-				// 		const idx = (yFloor * Constants.LOWRES_WIDTH + x) * 3;
-				// 		frameBuffer[idx] = brightness;
-				// 		frameBuffer[idx + 1] = brightness;
-				// 		frameBuffer[idx + 2] = brightness;
-				// 	}
-				// }
+				for (let yIdx = wallHeight; yIdx < previousWallHeight; yIdx++) {
+					const yCeil = halfHeight - yIdx;
+
+					if (yCeil >= 0 && yCeil < Constants.LOWRES_HEIGHT) {
+						const idx = (yCeil * Constants.LOWRES_WIDTH + x) * 3;
+						frameBuffer[idx] = brightness;
+						frameBuffer[idx + 1] = brightness;
+						frameBuffer[idx + 2] = brightness;
+					}
+				}
 
 				if (ray.isTerminated) {
 					// fill in the wall
-					for (
-						let yIdx = Math.floor(-0.5 * wallHeight);
-						yIdx < wallHeight * 0.5;
-						yIdx++
-					) {
+					for (let yIdx = -1 * wallHeight; yIdx < wallHeight; yIdx++) {
 						const yWall = halfHeight - yIdx;
 
 						if (yWall >= 0 && yWall < Constants.LOWRES_HEIGHT) {
