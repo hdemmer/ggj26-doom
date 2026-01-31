@@ -1,4 +1,4 @@
-const MAX_STEPS = 20;
+const MAX_STEPS = 100;
 
 export const Constants = {
 	WIDTH: 1280,

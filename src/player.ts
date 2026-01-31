@@ -25,7 +25,10 @@ export class Player {
 	 * The player position will never be outside the level.
 	 * @returns Object with mirrorPassages count and whether a door was hit.
 	 */
-	moveTo(delta: IVec2, level: Level): { mirrorPassages: number; hitDoor: boolean } {
+	moveTo(
+		delta: IVec2,
+		level: Level,
+	): { mirrorPassages: number; hitDoor: boolean } {
 		let simplex = level.findSimplex(this.pos);
 		if (!simplex) {
 			return { mirrorPassages: 0, hitDoor: false };
@@ -114,15 +117,15 @@ export class Player {
 
 					mirrorPassages++;
 					sideIndex = hitSideIndex;
+					if (side.isDoor) {
+						hitDoor = true;
+					}
 				} else {
 					// Hit wall - stop at wall minus player size
 					const stopDist = Math.max(0, hitDist - this.size);
 					currentX += dirX * stopDist;
 					currentY += dirY * stopDist;
 					remainingDist = 0;
-					if (side.isDoor) {
-						hitDoor = true;
-					}
 				}
 			} else {
 				// No hit, move full remaining distance
