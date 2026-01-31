@@ -184,7 +184,11 @@ export class Game {
 			}
 		}
 
-		this.health.update(deltaTime, this.isInMirror);
+		this.health.update(
+			deltaTime,
+			this.threeDee.whiteMaskPixelCount,
+			this.threeDee.blackMaskPixelCount,
+		);
 
 		this.playerSprite.pos.x = player.pos.x;
 		this.playerSprite.pos.y = player.pos.y;

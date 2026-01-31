@@ -46,6 +46,7 @@ export class ThreeDee {
 	private textureCanvas: OffscreenCanvas | null = null;
 	private textureCtx: OffscreenCanvasRenderingContext2D | null = null;
 	public whiteMaskPixelCount: number = 0;
+	public blackMaskPixelCount: number = 0;
 
 	constructor(public readonly game: Game) {
 		const pixelCount = Constants.LOWRES_WIDTH * Constants.LOWRES_HEIGHT;
@@ -131,8 +132,9 @@ export class ThreeDee {
 		const player = game.player;
 		const level = game.level;
 
-		// Count fully white helmet sprite pixels rendered this frame
+		// Count fully white and black helmet sprite pixels rendered this frame
 		let whiteHelmetPixelCount = 0;
+		let blackHelmetPixelCount = 0;
 
 		// Clear frame buffer (0xFF000000 = opaque black in little-endian ABGR)
 		this.frameBuffer32.fill(0xff000000);
@@ -381,8 +383,8 @@ export class ThreeDee {
 												let maskG = helmetSpriteTex.data[maskTexIdx + 1]!;
 												let maskB = helmetSpriteTex.data[maskTexIdx + 2]!;
 
-												// Invert helmet colors when even number of reflections
-												if (numReflections % 2 === 0) {
+												// Invert helmet colors when even number of reflections (including isInMirror)
+												if ((numReflections + (game.isInMirror ? 1 : 0)) % 2 === 0) {
 													maskR = 255 - maskR;
 													maskG = 255 - maskG;
 													maskB = 255 - maskB;
@@ -390,6 +392,8 @@ export class ThreeDee {
 
 												if (maskR === 255 && maskG === 255 && maskB === 255) {
 													whiteHelmetPixelCount++;
+												} else if (maskR === 0 && maskG === 0 && maskB === 0) {
+													blackHelmetPixelCount++;
 												}
 
 												const color: Rgb8Color = {
@@ -412,8 +416,8 @@ export class ThreeDee {
 												let maskG = helmetSpriteTex.data[maskTexIdx + 1]!;
 												let maskB = helmetSpriteTex.data[maskTexIdx + 2]!;
 
-												// Invert helmet colors when even number of reflections
-												if (numReflections % 2 === 0) {
+												// Invert helmet colors when even number of reflections (including isInMirror)
+												if ((numReflections + (game.isInMirror ? 1 : 0)) % 2 === 0) {
 													maskR = 255 - maskR;
 													maskG = 255 - maskG;
 													maskB = 255 - maskB;
@@ -421,6 +425,8 @@ export class ThreeDee {
 
 												if (maskR === 255 && maskG === 255 && maskB === 255) {
 													whiteHelmetPixelCount++;
+												} else if (maskR === 0 && maskG === 0 && maskB === 0) {
+													blackHelmetPixelCount++;
 												}
 
 												const color: Rgb8Color = {
@@ -717,6 +723,7 @@ export class ThreeDee {
 		}
 
 		this.whiteMaskPixelCount = whiteHelmetPixelCount;
+		this.blackMaskPixelCount = blackHelmetPixelCount;
 	}
 
 	draw(ctx: Ctx) {
