@@ -1,41 +1,11 @@
 import { Constants } from "@/Constants.ts";
 import type { Ctx } from "@/doom.ts";
+import { intersectLineLine } from "@/intersectLineLine.ts";
 import type { IVec2 } from "@/IVec2.ts";
 import type { Level } from "@/level.ts";
 
-/**
- * Calculate the shortest distance from a point to a line segment.
- */
-function distanceToSegment(point: IVec2, start: IVec2, end: IVec2): number {
-	const dx = end.x - start.x;
-	const dy = end.y - start.y;
-	const lengthSq = dx * dx + dy * dy;
-
-	if (lengthSq === 0) {
-		// Segment is a point
-		return Math.hypot(point.x - start.x, point.y - start.y);
-	}
-
-	// Project point onto the line, clamped to segment
-	const t = Math.max(
-		0,
-		Math.min(
-			1,
-			((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSq,
-		),
-	);
-
-	const projX = start.x + t * dx;
-	const projY = start.y + t * dy;
-
-	return Math.hypot(point.x - projX, point.y - projY);
-}
-
 export class Player {
-	public pos: IVec2 = {
-		x: 160,
-		y: 170,
-	};
+	public pos: IVec2;
 
 	public angle: number = 0;
 
@@ -43,15 +13,127 @@ export class Player {
 
 	public distanceTravelled: number = 0;
 
+	constructor(startPos: IVec2 = { x: 160, y: 170 }) {
+		this.pos = { ...startPos };
+	}
+
 	/**
-	 * Move the player to a new position and accumulate distance travelled.
+	 * Move the player by delta, tracing through simplices like a ray.
+	 * Handles passing through portals, bouncing off mirrors, and stopping at walls.
+	 * The player position will never be outside the level.
 	 */
-	moveTo(newPos: IVec2): void {
-		const dx = newPos.x - this.pos.x;
-		const dy = newPos.y - this.pos.y;
+	moveTo(delta: IVec2, level: Level): void {
+		let simplex = level.findSimplex(this.pos);
+		if (!simplex) {
+			return;
+		}
+
+		const deltaLength = Math.hypot(delta.x, delta.y);
+		if (deltaLength === 0) {
+			return;
+		}
+
+		let currentX = this.pos.x;
+		let currentY = this.pos.y;
+		let dirX = delta.x / deltaLength;
+		let dirY = delta.y / deltaLength;
+		let remainingDist = deltaLength;
+		let sideIndex = -1;
+
+		const intersection: IVec2 = { x: 0, y: 0 };
+		const maxIterations = 10;
+
+		for (let iter = 0; iter < maxIterations && remainingDist > 0.001; iter++) {
+			const targetX = currentX + dirX * remainingDist;
+			const targetY = currentY + dirY * remainingDist;
+
+			let hitDist = remainingDist;
+			let hitSideIndex = -1;
+
+			// Find closest intersection with simplex sides
+			for (let i = 0; i < simplex.sides.length; i++) {
+				if (i === sideIndex) continue;
+
+				const side = simplex.sides[i]!;
+				if (
+					intersectLineLine(
+						currentX,
+						currentY,
+						targetX,
+						targetY,
+						side.start.x,
+						side.start.y,
+						side.end.x,
+						side.end.y,
+						intersection,
+					)
+				) {
+					const dist = Math.hypot(
+						intersection.x - currentX,
+						intersection.y - currentY,
+					);
+					if (dist < hitDist) {
+						hitDist = dist;
+						hitSideIndex = i;
+					}
+				}
+			}
+
+			if (hitSideIndex >= 0) {
+				const side = simplex.sides[hitSideIndex]!;
+
+				if (side.simplex) {
+					// Pass through to neighbor simplex
+					currentX += dirX * hitDist;
+					currentY += dirY * hitDist;
+					remainingDist -= hitDist;
+					sideIndex = side.simplex.findSideIndexForSimplex(simplex);
+					simplex = side.simplex;
+				} else if (side.isMirror) {
+					// Reflect off mirror
+					currentX += dirX * hitDist;
+					currentY += dirY * hitDist;
+					remainingDist -= hitDist;
+
+					// Reflect movement direction
+					const dot = dirX * side.normal.x + dirY * side.normal.y;
+					dirX = dirX - 2 * dot * side.normal.x;
+					dirY = dirY - 2 * dot * side.normal.y;
+
+					// Reflect player angle
+					this.reflectAngle(side.normal);
+
+					sideIndex = hitSideIndex;
+				} else {
+					// Hit wall - stop at wall minus player size
+					const stopDist = Math.max(0, hitDist - this.size);
+					currentX += dirX * stopDist;
+					currentY += dirY * stopDist;
+					remainingDist = 0;
+				}
+			} else {
+				// No hit, move full remaining distance
+				currentX = targetX;
+				currentY = targetY;
+				remainingDist = 0;
+			}
+		}
+
+		// Update position and distance travelled
+		const dx = currentX - this.pos.x;
+		const dy = currentY - this.pos.y;
 		this.distanceTravelled += Math.hypot(dx, dy);
-		this.pos.x = newPos.x;
-		this.pos.y = newPos.y;
+		this.pos.x = currentX;
+		this.pos.y = currentY;
+	}
+
+	private reflectAngle(normal: IVec2): void {
+		const dirX = Math.cos(this.angle);
+		const dirY = Math.sin(this.angle);
+		const dot = dirX * normal.x + dirY * normal.y;
+		const newDirX = dirX - 2 * dot * normal.x;
+		const newDirY = dirY - 2 * dot * normal.y;
+		this.angle = Math.atan2(newDirY, newDirX);
 	}
 
 	/**
@@ -59,33 +141,6 @@ export class Player {
 	 */
 	isFlipped(): boolean {
 		return Math.floor(this.distanceTravelled / 10) % 2 === 1;
-	}
-
-	/**
-	 * Check if the player can move to the target position without getting
-	 * too close to walls.
-	 */
-	canMoveTo(target: IVec2, level: Level): boolean {
-		// First check if target is inside a valid simplex
-		const simplex = level.findSimplex(target);
-		if (!simplex) {
-			return false;
-		}
-
-		// Check distance to all walls in all simplices
-		for (const s of level.simplices) {
-			for (const side of s.sides) {
-				// A wall is a side without a connected simplex
-				if (side.simplex === null) {
-					const dist = distanceToSegment(target, side.start, side.end);
-					if (dist < this.size) {
-						return false;
-					}
-				}
-			}
-		}
-
-		return true;
 	}
 
 	/**

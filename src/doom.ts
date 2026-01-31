@@ -1,8 +1,10 @@
 /** biome-ignore-all lint/style/noNonNullAssertion: asdf */
 
 import { Constants } from "@/Constants.ts";
+import { Heart } from "@/Heart.ts";
 import type { IVec2 } from "@/IVec2.ts";
-import { initLevel } from "@/initLevel.ts";
+import { initLevel, initLevelFromShape } from "@/initLevel.ts";
+import { LEVELS } from "@/Levels.ts";
 import type { Level } from "@/level.ts";
 import { Player } from "@/player.ts";
 import { type Sprite, ThreeDee } from "@/ThreeDee.ts";
@@ -18,9 +20,11 @@ export interface GameImages {
 	floor: HTMLImageElement;
 	ceiling: HTMLImageElement;
 	wall: HTMLImageElement;
+	door: HTMLImageElement;
 	playerSprite: HTMLImageElement;
 	helmetSprite: HTMLImageElement;
 	frame: HTMLImageElement;
+	heartSprite: HTMLImageElement;
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {
@@ -33,23 +37,35 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 }
 
 export async function loadGameImages(): Promise<GameImages> {
-	const [floor, ceiling, wall, playerSprite, maskSprite, frame] =
-		await Promise.all([
-			loadImage("/assets/floor.jpg"),
-			loadImage("/assets/ceiling.jpg"),
-			loadImage("/assets/wall.jpg"),
-			loadImage("/assets/player.png"),
-			loadImage("/assets/mask.png"),
-			loadImage("/assets/frame.png"),
-		]);
+	const [
+		floor,
+		ceiling,
+		wall,
+		door,
+		playerSprite,
+		maskSprite,
+		frame,
+		heartSprite,
+	] = await Promise.all([
+		loadImage("/assets/floor.jpg"),
+		loadImage("/assets/ceiling.jpg"),
+		loadImage("/assets/wall.jpg"),
+		loadImage("/assets/door.jpg"),
+		loadImage("/assets/player.png"),
+		loadImage("/assets/mask.png"),
+		loadImage("/assets/frame.png"),
+		loadImage("/assets/heart.png"),
+	]);
 	console.log("All images loaded");
 	return {
 		floor,
 		ceiling,
 		wall,
+		door,
 		playerSprite,
 		helmetSprite: maskSprite,
 		frame,
+		heartSprite,
 	};
 }
 
@@ -66,24 +82,44 @@ export class Game {
 	public readonly floorImage: HTMLImageElement;
 	public readonly ceilingImage: HTMLImageElement;
 	public readonly wallImage: HTMLImageElement;
+	public readonly doorImage: HTMLImageElement;
 	public readonly playerSpriteImage: HTMLImageElement;
 	public readonly helmetSpriteImage: HTMLImageElement;
 	public readonly frameImage: HTMLImageElement;
-	private readonly playerSprite: Sprite;
+	public readonly heartSpriteImage: HTMLImageElement;
+	public readonly playerSprite: Sprite;
+	public readonly hearts: Heart[] = [];
+	public isInMirror: boolean = false;
 
 	constructor(
 		private readonly ctx: Ctx,
 		images: GameImages,
 	) {
 		this.level = initLevel();
-		this.player = new Player();
+		// this.level = initLevelFromShape(LEVELS[0]!);
+		// this.level = initLevelFromShape(
+		// 	[
+		// 		{ x: 50, y: 50 },
+		// 		{ x: 300, y: 50 },
+		// 		{ x: 300, y: 300 },
+		// 		{ x: 50, y: 300 },
+		// 	],
+		// 	[
+		// 		{ x: 100, y: 100 },
+		// 		{ x: 250, y: 250 },
+		// 	],
+		// 	{ x: 175, y: 175 },
+		// );
+		this.player = new Player(this.level.playerStartPos);
 
 		this.floorImage = images.floor;
 		this.ceilingImage = images.ceiling;
 		this.wallImage = images.wall;
+		this.doorImage = images.door;
 		this.playerSpriteImage = images.playerSprite;
 		this.helmetSpriteImage = images.helmetSprite;
 		this.frameImage = images.frame;
+		this.heartSpriteImage = images.heartSprite;
 
 		this.threeDee = new ThreeDee(this);
 
@@ -92,6 +128,11 @@ export class Game {
 			this.player.pos,
 			this.player.size,
 		);
+
+		// Spawn hearts at level positions
+		for (const pos of this.level.heartPositions) {
+			this.hearts.push(new Heart(pos, this.threeDee));
+		}
 
 		this.castRay();
 		this.threeDee.update();
@@ -120,22 +161,18 @@ export class Game {
 
 		const moveSpeed = 2;
 		if (this.keys.has("w") || this.keys.has("ArrowUp")) {
-			const target = {
-				x: player.pos.x + Math.cos(player.angle) * moveSpeed,
-				y: player.pos.y + Math.sin(player.angle) * moveSpeed,
+			const delta = {
+				x: Math.cos(player.angle) * moveSpeed,
+				y: Math.sin(player.angle) * moveSpeed,
 			};
-			if (player.canMoveTo(target, level)) {
-				player.moveTo(target);
-			}
+			player.moveTo(delta, level);
 		}
 		if (this.keys.has("s") || this.keys.has("ArrowDown")) {
-			const target = {
-				x: player.pos.x - Math.cos(player.angle) * moveSpeed,
-				y: player.pos.y - Math.sin(player.angle) * moveSpeed,
+			const delta = {
+				x: -Math.cos(player.angle) * moveSpeed,
+				y: -Math.sin(player.angle) * moveSpeed,
 			};
-			if (player.canMoveTo(target, level)) {
-				player.moveTo(target);
-			}
+			player.moveTo(delta, level);
 		}
 
 		this.playerSprite.pos.x = player.pos.x;

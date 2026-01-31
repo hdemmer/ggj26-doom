@@ -9,6 +9,8 @@ export class Level {
 	constructor(
 		public readonly simplices: Simplex[] = [],
 		public readonly root: Simplex,
+		public readonly heartPositions: IVec2[] = [],
+		public readonly playerStartPos: IVec2 = { x: 160, y: 170 },
 	) {}
 
 	findSimplex(p: IVec2): Simplex | null {
@@ -22,16 +24,42 @@ export class Level {
 	}
 
 	draw(ctx: Ctx) {
-		ctx.strokeStyle = "blue";
+		const normalLength = 10;
+
 		for (let i = 0; i < this.simplices.length; i++) {
 			const simplex = this.simplices[i]!;
-			ctx.moveTo(simplex.points[0]!.x, simplex.points[0]!.y);
-			for (let j = 1; j < simplex.points.length; j++) {
-				const point = simplex.points[j]!;
-				ctx.lineTo(point.x, point.y);
+			const hue = (i * 137) % 360; // Golden angle for color distribution
+			ctx.strokeStyle = `hsl(${hue}, 70%, 50%)`;
+
+			// Draw simplex outline with 5px offset towards center
+			const offset = 5;
+			const offsetPoints: IVec2[] = [];
+			for (const point of simplex.points) {
+				const dx = simplex.center.x - point.x;
+				const dy = simplex.center.y - point.y;
+				const len = Math.hypot(dx, dy);
+				offsetPoints.push({
+					x: point.x + (dx / len) * offset,
+					y: point.y + (dy / len) * offset,
+				});
+			}
+			ctx.beginPath();
+			ctx.moveTo(offsetPoints[0]!.x, offsetPoints[0]!.y);
+			for (let j = 1; j < offsetPoints.length; j++) {
+				ctx.lineTo(offsetPoints[j]!.x, offsetPoints[j]!.y);
 			}
 			ctx.closePath();
 			ctx.stroke();
+
+			// Draw normals for each side
+			for (const side of simplex.sides) {
+				const midX = (side.start.x + side.end.x) / 2;
+				const midY = (side.start.y + side.end.y) / 2;
+				ctx.beginPath();
+				ctx.moveTo(midX, midY);
+				ctx.lineTo(midX + side.normal.x * normalLength, midY + side.normal.y * normalLength);
+				ctx.stroke();
+			}
 		}
 	}
 

@@ -9,11 +9,14 @@ import { propagateRayMut } from "@/propagateRayMut.ts";
 import type { Ray } from "@/ray.ts";
 import { rayCircleIntersect } from "@/rayCircleIntersect.ts";
 
+export type SpriteType = "player" | "heart";
+
 export interface Sprite {
 	pos: IVec2;
 	size: number;
 	angle: number; // facing angle in radians
 	distanceTravelled: number; // accumulated movement distance
+	type: SpriteType;
 }
 
 /**
@@ -35,9 +38,11 @@ export class ThreeDee {
 	private floorTextureData: ImageData | null = null;
 	private ceilingTextureData: ImageData | null = null;
 	private wallTextureData: ImageData | null = null;
+	private doorTextureData: ImageData | null = null;
 	private playerSpriteData: ImageData | null = null;
 	private helmetSpriteData: ImageData | null = null;
 	private frameTextureData: ImageData | null = null;
+	private heartSpriteData: ImageData | null = null;
 	private textureCanvas: OffscreenCanvas | null = null;
 	private textureCtx: OffscreenCanvasRenderingContext2D | null = null;
 	public whiteMaskPixelCount: number = 0;
@@ -58,12 +63,13 @@ export class ThreeDee {
 		this.offscreenCtx = this.offscreenCanvas.getContext("2d")!;
 	}
 
-	addSprite(pos: IVec2, size: number, angle: number = 0): Sprite {
+	addSprite(pos: IVec2, size: number, angle: number = 0, type: SpriteType = "player"): Sprite {
 		const sprite: Sprite = {
 			pos: { ...pos },
 			size,
 			angle,
 			distanceTravelled: 0,
+			type,
 		};
 		this.sprites.push(sprite);
 		return sprite;
@@ -98,6 +104,9 @@ export class ThreeDee {
 		if (!this.wallTextureData) {
 			this.wallTextureData = this.extractTextureData(game.wallImage);
 		}
+		if (!this.doorTextureData) {
+			this.doorTextureData = this.extractTextureData(game.doorImage);
+		}
 		if (!this.playerSpriteData) {
 			this.playerSpriteData = this.extractTextureData(game.playerSpriteImage);
 		}
@@ -106,6 +115,9 @@ export class ThreeDee {
 		}
 		if (!this.frameTextureData) {
 			this.frameTextureData = this.extractTextureData(game.frameImage);
+		}
+		if (!this.heartSpriteData) {
+			this.heartSpriteData = this.extractTextureData(game.heartSpriteImage);
 		}
 	}
 
@@ -133,6 +145,7 @@ export class ThreeDee {
 		const playerSpriteTex = this.playerSpriteData!;
 		const helmetSpriteTex = this.helmetSpriteData!;
 		const frameTex = this.frameTextureData!;
+		const heartSpriteTex = this.heartSpriteData!;
 		const halfHeight = Constants.LOWRES_HEIGHT / 2;
 
 		// Pre-compute texture dimensions and masks (assumes power-of-2 textures)
@@ -171,6 +184,7 @@ export class ThreeDee {
 				sideIndex: -1,
 				isTerminated: false,
 				terminalU: 0,
+				terminalSideIsDoor: false,
 				numReflections: 0,
 				wasReflection: false,
 				reflectionU: 0,
@@ -222,138 +236,49 @@ export class ThreeDee {
 							);
 							const spriteBrightnessFactor = spriteBrightness / 255;
 
-							// Flip player texture horizontally for walk animation (mask stays unflipped)
-							const playerU = isSpriteFlipped(sprite) ? 1 - hit.u : hit.u;
-							const playerTexX = Math.floor(
-								playerU * (playerSpriteTex.width - 1),
-							);
-							const maskTexX = Math.floor(hit.u * (helmetSpriteTex.width - 1));
 							const unclampedSpriteHeight =
 								(Constants.LOWRES_HEIGHT * 2 * sprite.size) /
 								spriteCorrectedDist;
 
-							// Check if sprite is facing the camera (use segmentDir, not ray.dir which may be reflected)
-							const spriteFacingDir: IVec2 = {
-								x: Math.cos(sprite.angle),
-								y: Math.sin(sprite.angle),
-							};
-							const facingCamera = Player.isFacingTowards(
-								spriteFacingDir,
-								segmentDir,
-							);
+							if (sprite.type === "heart") {
+								// Render heart sprite
+								const heartTexX = Math.floor(hit.u * (heartSpriteTex.width - 1));
 
-							for (let yIdx = -spriteHeight; yIdx < spriteHeight; yIdx++) {
-								const yScreen = halfHeight - yIdx + Constants.PLAYER_Y_FUDGE;
-								if (
-									yScreen >= 0 &&
-									yScreen < Constants.LOWRES_HEIGHT &&
-									spriteCorrectedDist < columnDepth[yScreen]!
-								) {
-									const v =
-										(yIdx + unclampedSpriteHeight) /
-										(2 * unclampedSpriteHeight);
-									const texY =
-										playerSpriteTex.height -
-										1 -
-										Math.max(
-											0,
-											Math.min(
-												playerSpriteTex.height - 1,
-												Math.floor(v * (playerSpriteTex.height - 1)),
-											),
-										);
-									const playerTexIdx =
-										(texY * playerSpriteTex.width + playerTexX) * 4;
-									const maskTexIdx =
-										(texY * helmetSpriteTex.width + maskTexX) * 4;
+								for (let yIdx = -spriteHeight; yIdx < spriteHeight; yIdx++) {
+									const yScreen = halfHeight - yIdx + Constants.PLAYER_Y_FUDGE;
+									if (
+										yScreen >= 0 &&
+										yScreen < Constants.LOWRES_HEIGHT &&
+										spriteCorrectedDist < columnDepth[yScreen]!
+									) {
+										const v =
+											(yIdx + unclampedSpriteHeight) /
+											(2 * unclampedSpriteHeight);
+										const texY =
+											heartSpriteTex.height -
+											1 -
+											Math.max(
+												0,
+												Math.min(
+													heartSpriteTex.height - 1,
+													Math.floor(v * (heartSpriteTex.height - 1)),
+												),
+											);
+										const heartTexIdx =
+											(texY * heartSpriteTex.width + heartTexX) * 4;
 
-									const playerAlpha = playerSpriteTex.data[playerTexIdx + 3]!;
+										const heartAlpha = heartSpriteTex.data[heartTexIdx + 3]!;
 
-									const maskAlpha = helmetSpriteTex.data[maskTexIdx + 3]!;
-									// facingCamera = true means sprite facing towards ray.dir → helmet on top
-									// facingCamera = false means sprite facing away from ray.dir → player on top
-									const helmetOnTop = facingCamera;
-
-									if (helmetOnTop) {
-										// Draw player first (bottom layer)
-										if (playerAlpha >= 10) {
+										if (heartAlpha >= 10) {
 											const color: Rgb8Color = {
 												r:
-													playerSpriteTex.data[playerTexIdx]! *
+													heartSpriteTex.data[heartTexIdx]! *
 													spriteBrightnessFactor,
 												g:
-													playerSpriteTex.data[playerTexIdx + 1]! *
+													heartSpriteTex.data[heartTexIdx + 1]! *
 													spriteBrightnessFactor,
 												b:
-													playerSpriteTex.data[playerTexIdx + 2]! *
-													spriteBrightnessFactor,
-											};
-											clut.applyMut(color);
-
-											const idx = (yScreen * Constants.LOWRES_WIDTH + x) * 4;
-											frameBuffer[idx] = color.r;
-											frameBuffer[idx + 1] = color.g;
-											frameBuffer[idx + 2] = color.b;
-											columnDepth[yScreen] = spriteCorrectedDist;
-										}
-										// Draw helmet on top
-										if (maskAlpha >= 10) {
-											const maskR = helmetSpriteTex.data[maskTexIdx]!;
-											const maskG = helmetSpriteTex.data[maskTexIdx + 1]!;
-											const maskB = helmetSpriteTex.data[maskTexIdx + 2]!;
-
-											if (maskR === 255 && maskG === 255 && maskB === 255) {
-												whiteHelmetPixelCount++;
-											}
-
-											const color: Rgb8Color = {
-												r: maskR * spriteBrightnessFactor,
-												g: maskG * spriteBrightnessFactor,
-												b: maskB * spriteBrightnessFactor,
-											};
-											clut.applyMut(color);
-
-											const idx = (yScreen * Constants.LOWRES_WIDTH + x) * 4;
-											frameBuffer[idx] = color.r;
-											frameBuffer[idx + 1] = color.g;
-											frameBuffer[idx + 2] = color.b;
-											columnDepth[yScreen] = spriteCorrectedDist;
-										}
-									} else {
-										// Draw helmet first (bottom layer)
-										if (maskAlpha >= 10) {
-											const maskR = helmetSpriteTex.data[maskTexIdx]!;
-											const maskG = helmetSpriteTex.data[maskTexIdx + 1]!;
-											const maskB = helmetSpriteTex.data[maskTexIdx + 2]!;
-
-											if (maskR === 255 && maskG === 255 && maskB === 255) {
-												whiteHelmetPixelCount++;
-											}
-
-											const color: Rgb8Color = {
-												r: maskR * spriteBrightnessFactor,
-												g: maskG * spriteBrightnessFactor,
-												b: maskB * spriteBrightnessFactor,
-											};
-											clut.applyMut(color);
-
-											const idx = (yScreen * Constants.LOWRES_WIDTH + x) * 4;
-											frameBuffer[idx] = color.r;
-											frameBuffer[idx + 1] = color.g;
-											frameBuffer[idx + 2] = color.b;
-											columnDepth[yScreen] = spriteCorrectedDist;
-										}
-										// Draw player on top
-										if (playerAlpha >= 10) {
-											const color: Rgb8Color = {
-												r:
-													playerSpriteTex.data[playerTexIdx]! *
-													spriteBrightnessFactor,
-												g:
-													playerSpriteTex.data[playerTexIdx + 1]! *
-													spriteBrightnessFactor,
-												b:
-													playerSpriteTex.data[playerTexIdx + 2]! *
+													heartSpriteTex.data[heartTexIdx + 2]! *
 													spriteBrightnessFactor,
 											};
 											clut.applyMut(color);
@@ -366,7 +291,151 @@ export class ThreeDee {
 										}
 									}
 								}
-								// If neither alpha >= 10, don't mark as drawn - background will show through
+							} else {
+								// Render player sprite with helmet
+								// Flip player texture horizontally for walk animation (mask stays unflipped)
+								const playerU = isSpriteFlipped(sprite) ? 1 - hit.u : hit.u;
+								const playerTexX = Math.floor(
+									playerU * (playerSpriteTex.width - 1),
+								);
+								const maskTexX = Math.floor(hit.u * (helmetSpriteTex.width - 1));
+
+								// Check if sprite is facing the camera (use segmentDir, not ray.dir which may be reflected)
+								const spriteFacingDir: IVec2 = {
+									x: Math.cos(sprite.angle),
+									y: Math.sin(sprite.angle),
+								};
+								const facingCamera = Player.isFacingTowards(
+									spriteFacingDir,
+									segmentDir,
+								);
+
+								for (let yIdx = -spriteHeight; yIdx < spriteHeight; yIdx++) {
+									const yScreen = halfHeight - yIdx + Constants.PLAYER_Y_FUDGE;
+									if (
+										yScreen >= 0 &&
+										yScreen < Constants.LOWRES_HEIGHT &&
+										spriteCorrectedDist < columnDepth[yScreen]!
+									) {
+										const v =
+											(yIdx + unclampedSpriteHeight) /
+											(2 * unclampedSpriteHeight);
+										const texY =
+											playerSpriteTex.height -
+											1 -
+											Math.max(
+												0,
+												Math.min(
+													playerSpriteTex.height - 1,
+													Math.floor(v * (playerSpriteTex.height - 1)),
+												),
+											);
+										const playerTexIdx =
+											(texY * playerSpriteTex.width + playerTexX) * 4;
+										const maskTexIdx =
+											(texY * helmetSpriteTex.width + maskTexX) * 4;
+
+										const playerAlpha = playerSpriteTex.data[playerTexIdx + 3]!;
+
+										const maskAlpha = helmetSpriteTex.data[maskTexIdx + 3]!;
+										// facingCamera = true means sprite facing towards ray.dir → helmet on top
+										// facingCamera = false means sprite facing away from ray.dir → player on top
+										const helmetOnTop = facingCamera;
+
+										if (helmetOnTop) {
+											// Draw player first (bottom layer)
+											if (playerAlpha >= 10) {
+												const color: Rgb8Color = {
+													r:
+														playerSpriteTex.data[playerTexIdx]! *
+														spriteBrightnessFactor,
+													g:
+														playerSpriteTex.data[playerTexIdx + 1]! *
+														spriteBrightnessFactor,
+													b:
+														playerSpriteTex.data[playerTexIdx + 2]! *
+														spriteBrightnessFactor,
+												};
+												clut.applyMut(color);
+
+												const idx = (yScreen * Constants.LOWRES_WIDTH + x) * 4;
+												frameBuffer[idx] = color.r;
+												frameBuffer[idx + 1] = color.g;
+												frameBuffer[idx + 2] = color.b;
+												columnDepth[yScreen] = spriteCorrectedDist;
+											}
+											// Draw helmet on top
+											if (maskAlpha >= 10) {
+												const maskR = helmetSpriteTex.data[maskTexIdx]!;
+												const maskG = helmetSpriteTex.data[maskTexIdx + 1]!;
+												const maskB = helmetSpriteTex.data[maskTexIdx + 2]!;
+
+												if (maskR === 255 && maskG === 255 && maskB === 255) {
+													whiteHelmetPixelCount++;
+												}
+
+												const color: Rgb8Color = {
+													r: maskR * spriteBrightnessFactor,
+													g: maskG * spriteBrightnessFactor,
+													b: maskB * spriteBrightnessFactor,
+												};
+												clut.applyMut(color);
+
+												const idx = (yScreen * Constants.LOWRES_WIDTH + x) * 4;
+												frameBuffer[idx] = color.r;
+												frameBuffer[idx + 1] = color.g;
+												frameBuffer[idx + 2] = color.b;
+												columnDepth[yScreen] = spriteCorrectedDist;
+											}
+										} else {
+											// Draw helmet first (bottom layer)
+											if (maskAlpha >= 10) {
+												const maskR = helmetSpriteTex.data[maskTexIdx]!;
+												const maskG = helmetSpriteTex.data[maskTexIdx + 1]!;
+												const maskB = helmetSpriteTex.data[maskTexIdx + 2]!;
+
+												if (maskR === 255 && maskG === 255 && maskB === 255) {
+													whiteHelmetPixelCount++;
+												}
+
+												const color: Rgb8Color = {
+													r: maskR * spriteBrightnessFactor,
+													g: maskG * spriteBrightnessFactor,
+													b: maskB * spriteBrightnessFactor,
+												};
+												clut.applyMut(color);
+
+												const idx = (yScreen * Constants.LOWRES_WIDTH + x) * 4;
+												frameBuffer[idx] = color.r;
+												frameBuffer[idx + 1] = color.g;
+												frameBuffer[idx + 2] = color.b;
+												columnDepth[yScreen] = spriteCorrectedDist;
+											}
+											// Draw player on top
+											if (playerAlpha >= 10) {
+												const color: Rgb8Color = {
+													r:
+														playerSpriteTex.data[playerTexIdx]! *
+														spriteBrightnessFactor,
+													g:
+														playerSpriteTex.data[playerTexIdx + 1]! *
+														spriteBrightnessFactor,
+													b:
+														playerSpriteTex.data[playerTexIdx + 2]! *
+														spriteBrightnessFactor,
+												};
+												clut.applyMut(color);
+
+												const idx = (yScreen * Constants.LOWRES_WIDTH + x) * 4;
+												frameBuffer[idx] = color.r;
+												frameBuffer[idx + 1] = color.g;
+												frameBuffer[idx + 2] = color.b;
+												columnDepth[yScreen] = spriteCorrectedDist;
+											}
+										}
+									}
+									// If neither alpha >= 10, don't mark as drawn - background will show through
+								}
 							}
 						}
 					}
@@ -518,15 +587,16 @@ export class ThreeDee {
 				if (ray.isTerminated) {
 					// fill in the wall using texture
 					const u = ray.terminalU;
-					const texX = Math.floor(u * (wallTex.width - 1)) % wallTex.width;
+					const activeTex = ray.terminalSideIsDoor ? this.doorTextureData! : wallTex;
+					const texX = Math.floor(u * (activeTex.width - 1)) % activeTex.width;
 
 					// Use unclamped wall height for perspective-correct texture mapping
 					const unclampedWallHeight = (Constants.LOWRES_HEIGHT * 30) / distance;
 
 					// Pre-compute constants for wall texture loop
 					const invDoubleUnclampedWallHeight = 0.5 / unclampedWallHeight;
-					const wallTexHM1 = wallTex.height - 1;
-					const wallTexRowStride = wallTex.width * 4;
+					const activeTexHM1 = activeTex.height - 1;
+					const activeTexRowStride = activeTex.width * 4;
 					const texXOffset = texX * 4;
 
 					// Incremental v calculation: start value and delta
@@ -543,16 +613,16 @@ export class ThreeDee {
 							distance < columnDepth[yWall]!
 						) {
 							// texY with bitwise floor and inline clamping
-							let texY = (v * wallTexHM1) | 0;
+							let texY = (v * activeTexHM1) | 0;
 							if (texY < 0) texY = 0;
-							else if (texY > wallTexHM1) texY = wallTexHM1;
+							else if (texY > activeTexHM1) texY = activeTexHM1;
 
-							const texIdx = texY * wallTexRowStride + texXOffset;
+							const texIdx = texY * activeTexRowStride + texXOffset;
 
 							const color: Rgb8Color = {
-								r: wallTex.data[texIdx]! * brightnessFactor,
-								g: wallTex.data[texIdx + 1]! * brightnessFactor,
-								b: wallTex.data[texIdx + 2]! * brightnessFactor,
+								r: activeTex.data[texIdx]! * brightnessFactor,
+								g: activeTex.data[texIdx + 1]! * brightnessFactor,
+								b: activeTex.data[texIdx + 2]! * brightnessFactor,
 							};
 							clut.applyMut(color);
 

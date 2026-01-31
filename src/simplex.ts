@@ -11,6 +11,12 @@ export class Simplex {
 		public readonly id: number,
 		public readonly points: IVec2[], // MUST BE 3 !!!
 	) {
+		// Calculate center first so we can orient normals
+		this.center = {
+			x: (points[0]!.x + points[1]!.x + points[2]!.x) / 3,
+			y: (points[0]!.y + points[1]!.y + points[2]!.y) / 3,
+		};
+
 		const sides: SimplexSide[] = [];
 		// map points to sides
 		for (let i = 0; i < points.length; i++) {
@@ -23,22 +29,30 @@ export class Simplex {
 			const length = Math.hypot(normal.x, normal.y);
 			normal.x /= length;
 			normal.y /= length;
+
+			// Ensure normal points towards center (inward)
+			const midX = (start.x + end.x) / 2;
+			const midY = (start.y + end.y) / 2;
+			const toCenterX = this.center.x - midX;
+			const toCenterY = this.center.y - midY;
+			const dot = normal.x * toCenterX + normal.y * toCenterY;
+			if (dot < 0) {
+				normal.x = -normal.x;
+				normal.y = -normal.y;
+			}
+
 			sides.push({
 				start,
 				end,
 				normal,
 				simplex: null,
 				isMirror: false,
+				isDoor: false,
 				mirrorClut: null,
 			});
 		}
 
 		this.sides = sides;
-
-		this.center = {
-			x: (points[0]!.x + points[1]!.x + points[2]!.x) / 3,
-			y: (points[0]!.y + points[1]!.y + points[2]!.y) / 3,
-		};
 	}
 
 	containsPoint(p: IVec2): boolean {

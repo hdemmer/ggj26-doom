@@ -75,6 +75,7 @@ export function propagateRayMut(ray: Ray): void {
 					ray.sideIndex = -1;
 					ray.isTerminated = true;
 					ray.wasReflection = false;
+					ray.terminalSideIsDoor = side.isDoor;
 
 					// terminalU is the length along the wall where the ray hit, from 0 to 1
 					ray.terminalU =

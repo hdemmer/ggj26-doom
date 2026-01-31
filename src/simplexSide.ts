@@ -9,5 +9,6 @@ export interface SimplexSide {
 	normal: IVec2;
 	simplex: Simplex | null;
 	isMirror: boolean;
+	isDoor: boolean;
 	mirrorClut: Clut | null;
 }
