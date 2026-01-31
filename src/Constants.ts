@@ -7,4 +7,5 @@ export const Constants = {
 	MAX_DISTANCE: 10000,
 	MAX_STEPS: 100,
 	FOV: Math.PI / 3,
+	TURN_ANGLE_STEP: Math.PI / 60,
 };

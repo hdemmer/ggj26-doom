@@ -87,7 +87,7 @@ export function initLevel(): Level {
 		{ x: 100, y: 200 },
 	]);
 	root.connectSimplexOnSide(1, second);
-	second.connectSimplexOnSide(0, root);
+	second.connectSimplexOnSide(2, root);
 
 	const simplices: Simplex[] = [root, second];
 

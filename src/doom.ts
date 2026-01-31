@@ -116,7 +116,7 @@ function propagateRayMut(ray: Ray): void {
 		) {
 			// hit this side
 			if (side.simplex) {
-				console.log("propagating to neighbor simplex", side.simplex.id);
+				// console.log("propagating to neighbor simplex", side.simplex.id);
 				// has neighbor, propagate ray
 				ray.pos.x = intersection.x;
 				ray.pos.y = intersection.y;
@@ -124,7 +124,7 @@ function propagateRayMut(ray: Ray): void {
 				// Find the side index in the NEW simplex that connects back to the OLD simplex
 				const newSideIndex = side.simplex.findSideIndexForSimplex(simplex);
 				ray.sideIndex = newSideIndex;
-				console.log("newSideIndex", newSideIndex);
+				// console.log("newSideIndex", newSideIndex);
 
 				return;
 			} else {
@@ -141,7 +141,7 @@ function propagateRayMut(ray: Ray): void {
 					return;
 				} else {
 					// ray terminates
-					console.log("ray terminated at wall");
+					// console.log("ray terminated at wall");
 					ray.pos.x = intersection.x;
 					ray.pos.y = intersection.y;
 					ray.sideIndex = -1;
@@ -214,6 +214,8 @@ export class Game {
 
 	private rayPoints: IVec2[] = [];
 
+	private keys: Set<string> = new Set();
+
 	constructor(private readonly ctx: Ctx) {
 		this.level = initLevel();
 		this.player = new Player();
@@ -222,6 +224,13 @@ export class Game {
 
 		this.castRay();
 		this.threeDee.update();
+
+		window.addEventListener("keydown", (e) => {
+			this.keys.add(e.key);
+		});
+		window.addEventListener("keyup", (e) => {
+			this.keys.delete(e.key);
+		});
 	}
 
 	tick(deltaTime: number) {
@@ -229,6 +238,36 @@ export class Game {
 		const { level, player } = this;
 
 		this.time += deltaTime;
+
+		// Handle input
+		if (this.keys.has("a") || this.keys.has("ArrowLeft")) {
+			player.angle -= Constants.TURN_ANGLE_STEP;
+		}
+		if (this.keys.has("d") || this.keys.has("ArrowRight")) {
+			player.angle += Constants.TURN_ANGLE_STEP;
+		}
+
+		const moveSpeed = 2;
+		if (this.keys.has("w") || this.keys.has("ArrowUp")) {
+			const targetX = player.pos.x + Math.cos(player.angle) * moveSpeed;
+			const targetY = player.pos.y + Math.sin(player.angle) * moveSpeed;
+			if (level.findSimplex({ x: targetX, y: targetY })) {
+				player.pos.x = targetX;
+				player.pos.y = targetY;
+			}
+		}
+		if (this.keys.has("s") || this.keys.has("ArrowDown")) {
+			const targetX = player.pos.x - Math.cos(player.angle) * moveSpeed;
+			const targetY = player.pos.y - Math.sin(player.angle) * moveSpeed;
+			if (level.findSimplex({ x: targetX, y: targetY })) {
+				player.pos.x = targetX;
+				player.pos.y = targetY;
+			}
+		}
+
+		this.castRay();
+		this.threeDee.update();
+
 		ctx.fillStyle = "black";
 		ctx.fillRect(0, 0, Constants.WIDTH, Constants.HEIGHT);
 

@@ -7,6 +7,8 @@ export class ThreeDee {
 	private readonly frameBuffer: Uint8Array;
 	private readonly imageData: ImageData;
 	private readonly rayPoints: IVec2[] = [];
+	private readonly offscreenCanvas: OffscreenCanvas;
+	private readonly offscreenCtx: OffscreenCanvasRenderingContext2D;
 
 	constructor(public readonly game: Game) {
 		this.frameBuffer = new Uint8Array(
@@ -16,6 +18,11 @@ export class ThreeDee {
 			Constants.LOWRES_WIDTH,
 			Constants.LOWRES_HEIGHT,
 		);
+		this.offscreenCanvas = new OffscreenCanvas(
+			Constants.LOWRES_WIDTH,
+			Constants.LOWRES_HEIGHT,
+		);
+		this.offscreenCtx = this.offscreenCanvas.getContext("2d")!;
 	}
 
 	update() {
@@ -80,7 +87,7 @@ export class ThreeDee {
 	}
 
 	draw(ctx: Ctx) {
-		const { frameBuffer, imageData } = this;
+		const { frameBuffer, imageData, offscreenCanvas, offscreenCtx } = this;
 		const rgba = imageData.data;
 
 		for (let i = 0; i < Constants.LOWRES_WIDTH * Constants.LOWRES_HEIGHT; i++) {
@@ -92,6 +99,8 @@ export class ThreeDee {
 			rgba[dstIdx + 3] = 255;
 		}
 
-		ctx.putImageData(imageData, 0, 0);
+		offscreenCtx.putImageData(imageData, 0, 0);
+		ctx.imageSmoothingEnabled = false;
+		ctx.drawImage(offscreenCanvas, 0, 0, Constants.WIDTH, Constants.HEIGHT);
 	}
 }
