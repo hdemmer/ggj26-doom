@@ -8,7 +8,7 @@ import { Player } from "@/player.ts";
 import { pointInTriangle } from "@/pointInTriangle.ts";
 import { propagateRayMut } from "@/propagateRayMut.ts";
 import type { Ray } from "@/ray.ts";
-import { ThreeDee } from "@/ThreeDee.ts";
+import { type Sprite, ThreeDee } from "@/ThreeDee.ts";
 
 // biome-ignore lint/complexity/noStaticOnlyClass: asdf
 export class Vec2 {
@@ -150,6 +150,7 @@ export interface GameImages {
 	floor: HTMLImageElement;
 	ceiling: HTMLImageElement;
 	wall: HTMLImageElement;
+	playerSprite: HTMLImageElement;
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {
@@ -162,13 +163,14 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 }
 
 export async function loadGameImages(): Promise<GameImages> {
-	const [floor, ceiling, wall] = await Promise.all([
+	const [floor, ceiling, wall, playerSprite] = await Promise.all([
 		loadImage("/assets/floor.jpg"),
 		loadImage("/assets/ceiling.jpg"),
 		loadImage("/assets/wall.jpg"),
+		loadImage("/assets/player.png"),
 	]);
 	console.log("All images loaded");
-	return { floor, ceiling, wall };
+	return { floor, ceiling, wall, playerSprite };
 }
 
 export class Game {
@@ -184,6 +186,8 @@ export class Game {
 	public readonly floorImage: HTMLImageElement;
 	public readonly ceilingImage: HTMLImageElement;
 	public readonly wallImage: HTMLImageElement;
+	public readonly playerSpriteImage: HTMLImageElement;
+	private readonly playerSprite: Sprite;
 
 	constructor(
 		private readonly ctx: Ctx,
@@ -195,8 +199,15 @@ export class Game {
 		this.floorImage = images.floor;
 		this.ceilingImage = images.ceiling;
 		this.wallImage = images.wall;
+		this.playerSpriteImage = images.playerSprite;
 
 		this.threeDee = new ThreeDee(this);
+
+		// Add a playerSprite
+		this.playerSprite = this.threeDee.addSprite(
+			this.player.pos,
+			this.player.size,
+		);
 
 		this.castRay();
 		this.threeDee.update();
@@ -244,6 +255,10 @@ export class Game {
 				player.pos.y = target.y;
 			}
 		}
+
+		this.playerSprite.pos.x = player.pos.x;
+		this.playerSprite.pos.y = player.pos.y;
+		this.playerSprite.size = player.size;
 
 		this.castRay();
 		this.threeDee.update();
