@@ -197,5 +197,22 @@ export function initLevel(): Level {
 		}
 	}
 
+	// Find all walls (sides without a neighboring simplex)
+	const walls: { simplex: Simplex; sideIndex: number }[] = [];
+	for (const simplex of simplices) {
+		for (let i = 0; i < simplex.sides.length; i++) {
+			if (simplex.sides[i]!.simplex === null) {
+				walls.push({ simplex, sideIndex: i });
+			}
+		}
+	}
+
+	// Pick two random walls and make them mirrors
+	if (walls.length >= 2) {
+		const shuffled = walls.sort(() => Math.random() - 0.5);
+		shuffled[0]!.simplex.sides[shuffled[0]!.sideIndex]!.isMirror = true;
+		shuffled[1]!.simplex.sides[shuffled[1]!.sideIndex]!.isMirror = true;
+	}
+
 	return new Level(simplices, root);
 }

@@ -1,8 +1,19 @@
-import { serve } from "bun";
+import { serve, file } from "bun";
 import index from "./index.html";
 
 const server = serve({
   routes: {
+    // Serve static assets
+    "/assets/*": async (req) => {
+      const url = new URL(req.url);
+      const assetPath = `./assets${url.pathname.replace("/assets", "")}`;
+      const assetFile = file(assetPath);
+      if (await assetFile.exists()) {
+        return new Response(assetFile);
+      }
+      return new Response("Not found", { status: 404 });
+    },
+
     // Serve index.html for all unmatched routes.
     "/*": index,
 

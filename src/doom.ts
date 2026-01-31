@@ -216,11 +216,35 @@ export class Game {
 
 	private keys: Set<string> = new Set();
 
+	// Debug images
+	public readonly floorImage: HTMLImageElement;
+	public readonly ceilingImage: HTMLImageElement;
+	public readonly wallImage: HTMLImageElement;
+	private imagesLoaded = 0;
+
 	constructor(private readonly ctx: Ctx) {
 		this.level = initLevel();
 		this.player = new Player();
 
 		this.threeDee = new ThreeDee(this);
+
+		// Load debug images
+		this.floorImage = new Image();
+		this.ceilingImage = new Image();
+		this.wallImage = new Image();
+
+		const onLoad = () => {
+			this.imagesLoaded++;
+			console.log(`Image loaded (${this.imagesLoaded}/3)`);
+		};
+
+		this.floorImage.onload = onLoad;
+		this.ceilingImage.onload = onLoad;
+		this.wallImage.onload = onLoad;
+
+		this.floorImage.src = "/assets/floor.jpg";
+		this.ceilingImage.src = "/assets/ceiling.jpg";
+		this.wallImage.src = "/assets/wall.jpg";
 
 		this.castRay();
 		this.threeDee.update();
@@ -271,6 +295,13 @@ export class Game {
 		ctx.fillStyle = "black";
 		ctx.fillRect(0, 0, Constants.WIDTH, Constants.HEIGHT);
 
+		if (this.imagesLoaded < 3) {
+			ctx.fillStyle = "white";
+			ctx.font = "24px monospace";
+			ctx.fillText("Loading...", Constants.WIDTH / 2 - 60, Constants.HEIGHT / 2);
+			return;
+		}
+
 		this.threeDee.draw(ctx);
 
 		level.draw(ctx);
@@ -289,6 +320,43 @@ export class Game {
 			}
 		}
 		ctx.stroke();
+	}
+
+	private debugDrawTextures(ctx: Ctx) {
+		// Debug: draw loaded images as thumbnails
+		if (this.imagesLoaded === 3) {
+			const thumbSize = 64;
+			const padding = 10;
+			ctx.drawImage(this.floorImage, padding, padding, thumbSize, thumbSize);
+			ctx.drawImage(
+				this.ceilingImage,
+				padding + thumbSize + padding,
+				padding,
+				thumbSize,
+				thumbSize,
+			);
+			ctx.drawImage(
+				this.wallImage,
+				padding + (thumbSize + padding) * 2,
+				padding,
+				thumbSize,
+				thumbSize,
+			);
+
+			ctx.fillStyle = "white";
+			ctx.font = "10px monospace";
+			ctx.fillText("floor", padding, padding + thumbSize + 12);
+			ctx.fillText(
+				"ceiling",
+				padding + thumbSize + padding,
+				padding + thumbSize + 12,
+			);
+			ctx.fillText(
+				"wall",
+				padding + (thumbSize + padding) * 2,
+				padding + thumbSize + 12,
+			);
+		}
 	}
 
 	castRay() {
