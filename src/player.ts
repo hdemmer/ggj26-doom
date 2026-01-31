@@ -1,6 +1,31 @@
-import type { Ctx } from "@/doom.ts";
+import type { Ctx, Level } from "@/doom.ts";
 import type { IVec2 } from "@/IVec2.ts";
 import { Constants } from "@/Constants.ts";
+
+/**
+ * Calculate the shortest distance from a point to a line segment.
+ */
+function distanceToSegment(point: IVec2, start: IVec2, end: IVec2): number {
+	const dx = end.x - start.x;
+	const dy = end.y - start.y;
+	const lengthSq = dx * dx + dy * dy;
+
+	if (lengthSq === 0) {
+		// Segment is a point
+		return Math.hypot(point.x - start.x, point.y - start.y);
+	}
+
+	// Project point onto the line, clamped to segment
+	const t = Math.max(
+		0,
+		Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSq),
+	);
+
+	const projX = start.x + t * dx;
+	const projY = start.y + t * dy;
+
+	return Math.hypot(point.x - projX, point.y - projY);
+}
 
 export class Player {
 	public pos: IVec2 = {
@@ -11,6 +36,33 @@ export class Player {
 	public angle: number = 0;
 
 	public size: number = 10;
+
+	/**
+	 * Check if the player can move to the target position without getting
+	 * too close to walls.
+	 */
+	canMoveTo(target: IVec2, level: Level): boolean {
+		// First check if target is inside a valid simplex
+		const simplex = level.findSimplex(target);
+		if (!simplex) {
+			return false;
+		}
+
+		// Check distance to all walls in all simplices
+		for (const s of level.simplices) {
+			for (const side of s.sides) {
+				// A wall is a side without a connected simplex
+				if (side.simplex === null) {
+					const dist = distanceToSegment(target, side.start, side.end);
+					if (dist < this.size) {
+						return false;
+					}
+				}
+			}
+		}
+
+		return true;
+	}
 
 	draw(ctx: Ctx) {
 		ctx.beginPath();

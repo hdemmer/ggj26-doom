@@ -85,8 +85,6 @@ export class ThreeDee {
 		const wallTex = this.wallTextureData!;
 		const halfHeight = Constants.LOWRES_HEIGHT / 2;
 
-		const clut = Clut.makeIdentity();
-
 		for (let x = 0; x < Constants.LOWRES_WIDTH; x++) {
 			// Map x from [0, WIDTH-1] to [-FOV/2, FOV/2]
 			const angleOffset =
@@ -100,7 +98,6 @@ export class ThreeDee {
 			};
 
 			// Cast ray
-			clut.identityMut();
 			const ray: Ray = {
 				simplex: playerSimplex,
 				pos: { ...player.pos },
@@ -108,10 +105,11 @@ export class ThreeDee {
 				sideIndex: -1,
 				isTerminated: false,
 				terminalU: 0,
-				clut,
 				numReflections: 0,
+				wasReflection: false,
 			};
 			let distanceSum = 0;
+			let numReflections = 0;
 			let previousWallHeight = Constants.LOWRES_HEIGHT;
 			const previousPos: IVec2 = { x: ray.pos.x, y: ray.pos.y };
 			for (let i = 0; i < Constants.MAX_STEPS; i++) {
@@ -132,26 +130,21 @@ export class ThreeDee {
 				);
 
 				const unclampedBrightness =
-					255 / (0.01 * distance) / (ray.numReflections + 1);
+					255 / (0.01 * distance) / (numReflections + 1);
 				const brightness = Math.max(0, Math.min(255, unclampedBrightness));
+				const brightnessFactor = brightness / 255;
 
 				// Fill ceiling and floor
 				for (let yIdx = wallHeight; yIdx < previousWallHeight; yIdx++) {
-					// Calculate distance for this row
-					// Inverse of: wallHeight = (LOWRES_HEIGHT * 30) / (distance * cos(angleOffset))
-					const rowDist =
-						(Constants.LOWRES_HEIGHT * 30) / yIdx / Math.cos(angleOffset);
-
 					// World position along the ray at this distance
-					const worldX = (player.pos.x + rayDir.x * rowDist) / 100;
-					const worldY = (player.pos.y + rayDir.y * rowDist) / 100;
-
-					// Apply brightness based on distance
-					const rowBrightness = Math.max(
-						0,
-						Math.min(255, 255 / (0.01 * rowDist)),
-					);
-					const brightnessFactor = rowBrightness / 255;
+					// Perspective-correct interpolation: screen Y maps inversely to distance
+					const lambda =
+						((previousWallHeight - yIdx) * wallHeight) /
+						(yIdx * (previousWallHeight - wallHeight));
+					let worldX = ray.pos.x * lambda + previousPos.x * (1 - lambda);
+					let worldY = ray.pos.y * lambda + previousPos.y * (1 - lambda);
+					worldX /= 100;
+					worldY /= 100;
 
 					// Ceiling
 					const yCeil = halfHeight - yIdx;
@@ -172,7 +165,6 @@ export class ThreeDee {
 							g: ceilingTex.data[texIdx + 1]! * brightnessFactor,
 							b: ceilingTex.data[texIdx + 2]! * brightnessFactor,
 						};
-						ray.clut.applyMut(color);
 
 						const idx = (yCeil * Constants.LOWRES_WIDTH + x) * 3;
 						frameBuffer[idx] = color.r;
@@ -199,7 +191,6 @@ export class ThreeDee {
 							g: floorTex.data[texIdx + 1]! * brightnessFactor,
 							b: floorTex.data[texIdx + 2]! * brightnessFactor,
 						};
-						ray.clut.applyMut(color);
 
 						const idx = (yFloor * Constants.LOWRES_WIDTH + x) * 3;
 						frameBuffer[idx] = color.r;
@@ -229,7 +220,6 @@ export class ThreeDee {
 								g: wallTex.data[texIdx + 1]! * brightnessFactor,
 								b: wallTex.data[texIdx + 2]! * brightnessFactor,
 							};
-							ray.clut.applyMut(color);
 
 							const idx = (yWall * Constants.LOWRES_WIDTH + x) * 3;
 							frameBuffer[idx] = color.r;
@@ -244,6 +234,7 @@ export class ThreeDee {
 				previousPos.x = ray.pos.x;
 				previousPos.y = ray.pos.y;
 				previousWallHeight = wallHeight;
+				numReflections = ray.numReflections;
 			}
 
 			/*

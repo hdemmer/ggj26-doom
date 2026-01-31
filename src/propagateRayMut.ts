@@ -38,8 +38,8 @@ export function propagateRayMut(ray: Ray): void {
 				ray.pos.y = intersection.y;
 				ray.simplex = side.simplex;
 				// Find the side index in the NEW simplex that connects back to the OLD simplex
-				const newSideIndex = side.simplex.findSideIndexForSimplex(simplex);
-				ray.sideIndex = newSideIndex;
+				ray.sideIndex = side.simplex.findSideIndexForSimplex(simplex);
+				ray.wasReflection = false;
 				// console.log("newSideIndex", newSideIndex);
 
 				return;
@@ -56,10 +56,7 @@ export function propagateRayMut(ray: Ray): void {
 					ray.sideIndex = i; // now on this side after reflection
 
 					ray.numReflections++;
-					if (ray.clut) {
-						// apply reflection clut: Constants.REFLECTION_CLUT
-						ray.clut.multiplyMut(Constants.REFLECTION_CLUT);
-					}
+					ray.wasReflection = true;
 
 					return;
 				} else {
@@ -69,6 +66,7 @@ export function propagateRayMut(ray: Ray): void {
 					ray.pos.y = intersection.y;
 					ray.sideIndex = -1;
 					ray.isTerminated = true;
+					ray.wasReflection = false;
 
 					// terminalU is the length along the wall where the ray hit, from 0 to 1
 					ray.terminalU =

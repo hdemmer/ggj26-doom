@@ -1,4 +1,3 @@
-import type { Clut } from "@/Clut.ts";
 import type { Simplex } from "@/doom.ts";
 import type { IVec2 } from "@/IVec2.ts";
 
@@ -9,6 +8,6 @@ export interface Ray {
 	sideIndex: number; // -1 if not on a side, otherwise the index of the side we entered from
 	isTerminated: boolean;
 	terminalU: number;
-	clut: Clut | null;
+	wasReflection: boolean;
 	numReflections: number;
 }

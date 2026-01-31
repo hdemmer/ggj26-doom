@@ -91,6 +91,10 @@ export function initLevel(): Level {
 
 	const simplices: Simplex[] = [root, second];
 
+	second.sides[0].isMirror = true;
+
+	return new Level(simplices, root);
+
 	for (let i = 2; i < 5; i++) {
 		// Pick a random simplex to grow from
 		const currentSimplex =
@@ -210,8 +214,8 @@ export function initLevel(): Level {
 	// Pick two random walls and make them mirrors
 	if (walls.length >= 2) {
 		const shuffled = walls.sort(() => Math.random() - 0.5);
-		// shuffled[0]!.simplex.sides[shuffled[0]!.sideIndex]!.isMirror = true;
-		// shuffled[1]!.simplex.sides[shuffled[1]!.sideIndex]!.isMirror = true;
+		shuffled[0]!.simplex.sides[shuffled[0]!.sideIndex]!.isMirror = true;
+		shuffled[1]!.simplex.sides[shuffled[1]!.sideIndex]!.isMirror = true;
 	}
 
 	return new Level(simplices, root);

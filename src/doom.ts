@@ -120,7 +120,7 @@ export class Level {
 		}
 	}
 
-	castRay(origin: IVec2, direction: IVec2, clut: Clut | null, result: IVec2[]) {
+	castRay(origin: IVec2, direction: IVec2, result: IVec2[]) {
 		result.length = 0;
 		const currentSimplex = this.findSimplex(origin);
 		if (!currentSimplex) {
@@ -133,8 +133,8 @@ export class Level {
 			sideIndex: -1,
 			isTerminated: false,
 			terminalU: 0,
-			clut,
 			numReflections: 0,
+			wasReflection: false,
 		};
 		for (let i = 0; i < Constants.MAX_STEPS; i++) {
 			result.push({ ...ray.pos });
@@ -225,19 +225,23 @@ export class Game {
 
 		const moveSpeed = 2;
 		if (this.keys.has("w") || this.keys.has("ArrowUp")) {
-			const targetX = player.pos.x + Math.cos(player.angle) * moveSpeed;
-			const targetY = player.pos.y + Math.sin(player.angle) * moveSpeed;
-			if (level.findSimplex({ x: targetX, y: targetY })) {
-				player.pos.x = targetX;
-				player.pos.y = targetY;
+			const target = {
+				x: player.pos.x + Math.cos(player.angle) * moveSpeed,
+				y: player.pos.y + Math.sin(player.angle) * moveSpeed,
+			};
+			if (player.canMoveTo(target, level)) {
+				player.pos.x = target.x;
+				player.pos.y = target.y;
 			}
 		}
 		if (this.keys.has("s") || this.keys.has("ArrowDown")) {
-			const targetX = player.pos.x - Math.cos(player.angle) * moveSpeed;
-			const targetY = player.pos.y - Math.sin(player.angle) * moveSpeed;
-			if (level.findSimplex({ x: targetX, y: targetY })) {
-				player.pos.x = targetX;
-				player.pos.y = targetY;
+			const target = {
+				x: player.pos.x - Math.cos(player.angle) * moveSpeed,
+				y: player.pos.y - Math.sin(player.angle) * moveSpeed,
+			};
+			if (player.canMoveTo(target, level)) {
+				player.pos.x = target.x;
+				player.pos.y = target.y;
 			}
 		}
 
@@ -316,7 +320,7 @@ export class Game {
 				simplex,
 			};
 
-			level.castRay(ray.pos, ray.dir, null, this.rayPoints);
+			level.castRay(ray.pos, ray.dir, this.rayPoints);
 		}
 	}
 }
