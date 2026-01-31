@@ -109,6 +109,7 @@ function propagateRayMut(ray: Ray): void {
 		) {
 			// hit this side
 			if (side.simplex) {
+				console.log("propagating to neighbor simplex", side.simplex.id);
 				// has neighbor, propagate ray
 				ray.pos.x = intersection.x;
 				ray.pos.y = intersection.y;
@@ -121,8 +122,8 @@ function propagateRayMut(ray: Ray): void {
 						x: -hitSide.normal.x,
 						y: -hitSide.normal.y,
 					};
-					ray.pos.x += normal.x * Constants.EPSILON;
-					ray.pos.y += normal.y * Constants.EPSILON;
+					ray.pos.x -= normal.x * Constants.EPSILON;
+					ray.pos.y -= normal.y * Constants.EPSILON;
 				}
 
 				return;
@@ -199,7 +200,7 @@ function initLevel(): Level {
 	const simplices: Simplex[] = [root];
 
 	let currentSimplex = root;
-	for (let i = 0; i < 5; i++) {
+	for (let i = 0; i < 1; i++) {
 		// grow side B
 		const l = 1.1 - Math.random() * 0.2;
 		const newPoint: IVec2 = {
@@ -234,11 +235,13 @@ export class Game {
 	private readonly level: Level;
 	private readonly player: Player;
 
-	private ray: Ray | null = null;
+	private rayPoints: IVec2[] = [];
 
 	constructor(private readonly ctx: Ctx) {
 		this.level = initLevel();
 		this.player = new Player();
+
+		this.castRay();
 	}
 
 	tick(deltaTime: number) {
@@ -252,31 +255,33 @@ export class Game {
 		level.draw(ctx);
 		player.draw(ctx);
 
-		if (!this.ray) {
-			const simplex = level.findSimplex(player.pos);
-			if (simplex) {
-				this.ray = {
-					pos: { ...player.pos },
-					dir: { ...player.dir },
-					simplex,
-				};
-			}
-		}
-
-		if (this.ray) {
-			const rayPoints: IVec2[] = [];
-			level.castRay(this.ray.pos, this.ray.dir, rayPoints);
-			ctx.strokeStyle = "red";
-			ctx.beginPath();
-			for (let i = 0; i < rayPoints.length; i++) {
-				const p = rayPoints[i]!;
+		ctx.strokeStyle = "red";
+		ctx.beginPath();
+		for (const p of this.rayPoints) {
+			for (let i = 0; i < this.rayPoints.length; i++) {
+				const p = this.rayPoints[i]!;
 				if (i === 0) {
 					ctx.moveTo(p.x, p.y);
 				} else {
 					ctx.lineTo(p.x, p.y);
 				}
 			}
-			ctx.stroke();
+		}
+		ctx.stroke();
+	}
+
+	castRay() {
+		const { level, player } = this;
+		this.rayPoints.length = 0;
+		const simplex = level.findSimplex(player.pos);
+		if (simplex) {
+			const ray = {
+				pos: { ...player.pos },
+				dir: { ...player.dir },
+				simplex,
+			};
+
+			level.castRay(ray.pos, ray.dir, this.rayPoints);
 		}
 	}
 }
@@ -290,6 +295,7 @@ export function doom(ctx: Ctx) {
 	}
 	didInit = true;
 	const game = new Game(ctx);
+	(window as any).game = game;
 
 	function handleRaf(t: number) {
 		game.tick(t);
