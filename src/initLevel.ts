@@ -97,7 +97,7 @@ export function initLevel(): Level {
 	second.sides[0].isMirror = true;
 	second.sides[0].mirrorClut = Clut.makeDarken();
 
-	return new Level(simplices, root);
+	// return new Level(simplices, root);
 
 	for (let i = 2; i < 5; i++) {
 		// Pick a random simplex to grow from

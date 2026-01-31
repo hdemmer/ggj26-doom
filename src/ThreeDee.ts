@@ -437,8 +437,7 @@ export class ThreeDee {
 					),
 				);
 
-				const unclampedBrightness =
-					255 / (0.01 * distance) / (numReflections + 1);
+				const unclampedBrightness = 255 / (0.01 * distance);
 				const brightness = Math.max(0, Math.min(255, unclampedBrightness));
 				const brightnessFactor = brightness / 255;
 
@@ -462,7 +461,7 @@ export class ThreeDee {
 					// Calculate brightness per-pixel based on actual pixel distance
 					const pixelBrightness = Math.max(
 						0,
-						Math.min(255, 255 / (0.01 * pixelDist) / (numReflections + 1)),
+						Math.min(255, 255 / (0.01 * pixelDist)),
 					);
 					const pixelBrightnessFactor = pixelBrightness / 255;
 
