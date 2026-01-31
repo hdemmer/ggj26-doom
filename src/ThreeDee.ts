@@ -551,6 +551,23 @@ export class ThreeDee {
 							b: floorTex.data[texIdx + 2]! * pixelBrightnessFactor,
 						};
 
+						// Apply blob shadow from sprites
+						const floorWorldX = worldX * 100;
+						const floorWorldY = worldY * 100;
+						for (const sprite of this.sprites) {
+							const sdx = floorWorldX - sprite.pos.x;
+							const sdy = floorWorldY - sprite.pos.y;
+							const spriteDist = Math.hypot(sdx, sdy);
+							const shadowRadius = sprite.size * 0.8;
+							if (spriteDist < shadowRadius) {
+								const shadowFactor = spriteDist / shadowRadius;
+								const shadowMultiplier = 0.4 + 0.6 * shadowFactor;
+								color.r *= shadowMultiplier;
+								color.g *= shadowMultiplier;
+								color.b *= shadowMultiplier;
+							}
+						}
+
 						clut.applyMut(color);
 						const idx = (yFloor * Constants.LOWRES_WIDTH + x) * 4;
 						frameBuffer[idx] = color.r;

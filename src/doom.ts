@@ -204,8 +204,13 @@ export class Game {
 
 		this.threeDee.draw(ctx);
 
-		level.draw(ctx);
-		player.draw(ctx);
+		this.debugDrawLevel(ctx);
+		// this.debugDrawTextures(ctx);
+	}
+
+	private debugDrawLevel(ctx: Ctx) {
+		this.level.draw(ctx);
+		this.player.draw(ctx);
 
 		ctx.strokeStyle = "red";
 		ctx.beginPath();
@@ -220,8 +225,6 @@ export class Game {
 			}
 		}
 		ctx.stroke();
-
-		// this.debugDrawTextures(ctx);
 	}
 
 	private debugDrawTextures(ctx: Ctx) {
