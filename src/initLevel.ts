@@ -1,7 +1,8 @@
 /** biome-ignore-all lint/style/noNonNullAssertion: asdf */
 import { Clut } from "@/Clut.ts";
-import { Level, Simplex } from "@/doom.ts";
 import type { IVec2 } from "@/IVec2.ts";
+import { Level } from "@/level.ts";
+import { Simplex } from "@/simplex.ts";
 
 function sign(p1: IVec2, p2: IVec2, p3: IVec2): number {
 	return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
@@ -92,10 +93,10 @@ export function initLevel(): Level {
 
 	const simplices: Simplex[] = [root, second];
 
-	root.sides[2].isMirror = true;
-	root.sides[2].mirrorClut = Clut.makeDarken();
-	second.sides[0].isMirror = true;
-	second.sides[0].mirrorClut = Clut.makeDarken();
+	root.sides[2]!.isMirror = true;
+	root.sides[2]!.mirrorClut = Clut.makeDarken();
+	second.sides[0]!.isMirror = true;
+	second.sides[0]!.mirrorClut = Clut.makeDarken();
 
 	// return new Level(simplices, root);
 

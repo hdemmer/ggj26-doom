@@ -1,13 +1,10 @@
 /** biome-ignore-all lint/style/noNonNullAssertion: asdf */
 
-import type { Clut } from "@/Clut.ts";
 import { Constants } from "@/Constants.ts";
 import type { IVec2 } from "@/IVec2.ts";
 import { initLevel } from "@/initLevel.ts";
+import type { Level } from "@/level.ts";
 import { Player } from "@/player.ts";
-import { pointInTriangle } from "@/pointInTriangle.ts";
-import { propagateRayMut } from "@/propagateRayMut.ts";
-import type { Ray } from "@/ray.ts";
 import { type Sprite, ThreeDee } from "@/ThreeDee.ts";
 
 // biome-ignore lint/complexity/noStaticOnlyClass: asdf
@@ -17,144 +14,13 @@ export class Vec2 {
 
 export type Ctx = CanvasRenderingContext2D;
 
-export interface SimplexSide {
-	start: IVec2;
-	end: IVec2;
-	normal: IVec2;
-	simplex: Simplex | null;
-	isMirror: boolean;
-	mirrorClut: Clut | null;
-}
-
-export class Simplex {
-	public readonly sides: SimplexSide[];
-
-	public readonly center: IVec2; // centroid of the triangle
-
-	constructor(
-		public readonly id: number,
-		public readonly points: IVec2[], // MUST BE 3 !!!
-	) {
-		const sides: SimplexSide[] = [];
-		// map points to sides
-		for (let i = 0; i < points.length; i++) {
-			const start = points[i]!;
-			const end = points[(i + 1) % points.length]!;
-			const normal = {
-				x: end.y - start.y,
-				y: start.x - end.x,
-			};
-			const length = Math.hypot(normal.x, normal.y);
-			normal.x /= length;
-			normal.y /= length;
-			sides.push({
-				start,
-				end,
-				normal,
-				simplex: null,
-				isMirror: false,
-				mirrorClut: null,
-			});
-		}
-
-		this.sides = sides;
-
-		this.center = {
-			x: (points[0]!.x + points[1]!.x + points[2]!.x) / 3,
-			y: (points[0]!.y + points[1]!.y + points[2]!.y) / 3,
-		};
-	}
-
-	containsPoint(p: IVec2): boolean {
-		return pointInTriangle(
-			p,
-			this.points[0]!,
-			this.points[1]!,
-			this.points[2]!,
-		);
-	}
-
-	connectSimplexOnSide(sideIndex: number, neighbor: Simplex) {
-		if (sideIndex < 0 || sideIndex >= this.sides.length) {
-			throw new Error("Invalid side index");
-		}
-		this.sides[sideIndex]!.simplex = neighbor;
-	}
-
-	findSideIndexForSimplex(simplex: Simplex): number {
-		for (let i = 0; i < this.sides.length; i++) {
-			const side = this.sides[i]!;
-			if (side.simplex === simplex) {
-				return i;
-			}
-		}
-		return -1;
-	}
-}
-
-export class Level {
-	constructor(
-		public readonly simplices: Simplex[] = [],
-		public readonly root: Simplex,
-	) {}
-
-	findSimplex(p: IVec2): Simplex | null {
-		for (let i = 0; i < this.simplices.length; i++) {
-			const simplex = this.simplices[i]!;
-			if (simplex.containsPoint(p)) {
-				return simplex;
-			}
-		}
-		return null;
-	}
-
-	draw(ctx: Ctx) {
-		ctx.strokeStyle = "blue";
-		for (let i = 0; i < this.simplices.length; i++) {
-			const simplex = this.simplices[i]!;
-			ctx.moveTo(simplex.points[0]!.x, simplex.points[0]!.y);
-			for (let j = 1; j < simplex.points.length; j++) {
-				const point = simplex.points[j]!;
-				ctx.lineTo(point.x, point.y);
-			}
-			ctx.closePath();
-			ctx.stroke();
-		}
-	}
-
-	castRay(origin: IVec2, direction: IVec2, result: IVec2[]) {
-		result.length = 0;
-		const currentSimplex = this.findSimplex(origin);
-		if (!currentSimplex) {
-			return;
-		}
-		const ray: Ray = {
-			simplex: currentSimplex,
-			pos: { ...origin },
-			dir: { ...direction },
-			sideIndex: -1,
-			isTerminated: false,
-			terminalU: 0,
-			numReflections: 0,
-			wasReflection: false,
-			reflectionClut: null,
-		};
-		for (let i = 0; i < Constants.MAX_STEPS; i++) {
-			result.push({ ...ray.pos });
-			if (ray.isTerminated) {
-				break;
-			}
-			propagateRayMut(ray);
-		}
-	}
-}
-
 export interface GameImages {
 	floor: HTMLImageElement;
 	ceiling: HTMLImageElement;
 	wall: HTMLImageElement;
 	playerSprite: HTMLImageElement;
 	helmetSprite: HTMLImageElement;
+	frame: HTMLImageElement;
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {
@@ -167,15 +33,24 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 }
 
 export async function loadGameImages(): Promise<GameImages> {
-	const [floor, ceiling, wall, playerSprite, maskSprite] = await Promise.all([
-		loadImage("/assets/floor.jpg"),
-		loadImage("/assets/ceiling.jpg"),
-		loadImage("/assets/wall.jpg"),
-		loadImage("/assets/player.png"),
-		loadImage("/assets/mask.png"),
-	]);
+	const [floor, ceiling, wall, playerSprite, maskSprite, frame] =
+		await Promise.all([
+			loadImage("/assets/floor.jpg"),
+			loadImage("/assets/ceiling.jpg"),
+			loadImage("/assets/wall.jpg"),
+			loadImage("/assets/player.png"),
+			loadImage("/assets/mask.png"),
+			loadImage("/assets/frame.png"),
+		]);
 	console.log("All images loaded");
-	return { floor, ceiling, wall, playerSprite, helmetSprite: maskSprite };
+	return {
+		floor,
+		ceiling,
+		wall,
+		playerSprite,
+		helmetSprite: maskSprite,
+		frame,
+	};
 }
 
 export class Game {
@@ -193,6 +68,7 @@ export class Game {
 	public readonly wallImage: HTMLImageElement;
 	public readonly playerSpriteImage: HTMLImageElement;
 	public readonly helmetSpriteImage: HTMLImageElement;
+	public readonly frameImage: HTMLImageElement;
 	private readonly playerSprite: Sprite;
 
 	constructor(
@@ -207,6 +83,7 @@ export class Game {
 		this.wallImage = images.wall;
 		this.playerSpriteImage = images.playerSprite;
 		this.helmetSpriteImage = images.helmetSprite;
+		this.frameImage = images.frame;
 
 		this.threeDee = new ThreeDee(this);
 
@@ -292,7 +169,7 @@ export class Game {
 		}
 		ctx.stroke();
 
-		this.debugDrawTextures(ctx);
+		// this.debugDrawTextures(ctx);
 	}
 
 	private debugDrawTextures(ctx: Ctx) {

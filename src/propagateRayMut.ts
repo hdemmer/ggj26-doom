@@ -58,6 +58,13 @@ export function propagateRayMut(ray: Ray): void {
 					ray.numReflections++;
 					ray.wasReflection = true;
 					ray.reflectionClut = side.mirrorClut;
+					// reflectionU is the length along the wall where the ray hit, from 0 to 1
+					ray.reflectionU =
+						Math.hypot(
+							intersection.x - side.start.x,
+							intersection.y - side.start.y,
+						) /
+						Math.hypot(side.end.x - side.start.x, side.end.y - side.start.y);
 
 					return;
 				} else {

@@ -1,6 +1,7 @@
-import type { Ctx, Level } from "@/doom.ts";
-import type { IVec2 } from "@/IVec2.ts";
 import { Constants } from "@/Constants.ts";
+import type { Ctx } from "@/doom.ts";
+import type { IVec2 } from "@/IVec2.ts";
+import type { Level } from "@/level.ts";
 
 /**
  * Calculate the shortest distance from a point to a line segment.
@@ -18,7 +19,10 @@ function distanceToSegment(point: IVec2, start: IVec2, end: IVec2): number {
 	// Project point onto the line, clamped to segment
 	const t = Math.max(
 		0,
-		Math.min(1, ((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSq),
+		Math.min(
+			1,
+			((point.x - start.x) * dx + (point.y - start.y) * dy) / lengthSq,
+		),
 	);
 
 	const projX = start.x + t * dx;

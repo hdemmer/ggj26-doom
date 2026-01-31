@@ -7,6 +7,7 @@ import type { IVec2 } from "@/IVec2.ts";
 import { Player } from "@/player.ts";
 import { propagateRayMut } from "@/propagateRayMut.ts";
 import type { Ray } from "@/ray.ts";
+import { rayCircleIntersect } from "@/rayCircleIntersect.ts";
 
 export interface Sprite {
 	pos: IVec2;
@@ -20,11 +21,6 @@ export interface Sprite {
  */
 function isSpriteFlipped(sprite: Sprite): boolean {
 	return Math.floor(sprite.distanceTravelled / 10) % 2 === 1;
-}
-
-interface RayCircleHit {
-	distance: number;
-	u: number; // 0-1 across the sprite width
 }
 
 export class ThreeDee {
@@ -41,6 +37,7 @@ export class ThreeDee {
 	private wallTextureData: ImageData | null = null;
 	private playerSpriteData: ImageData | null = null;
 	private helmetSpriteData: ImageData | null = null;
+	private frameTextureData: ImageData | null = null;
 	private textureCanvas: OffscreenCanvas | null = null;
 	private textureCtx: OffscreenCanvasRenderingContext2D | null = null;
 	public whiteMaskPixelCount: number = 0;
@@ -90,66 +87,6 @@ export class ThreeDee {
 		return this.textureCtx.getImageData(0, 0, img.width, img.height);
 	}
 
-	/**
-	 * Check if a ray intersects a sprite circle.
-	 * Returns hit info or null if no intersection.
-	 */
-	private rayCircleIntersect(
-		rayOrigin: IVec2,
-		rayDir: IVec2,
-		sprite: Sprite,
-	): RayCircleHit | null {
-		// Vector from ray origin to sprite center
-		const ocX = sprite.pos.x - rayOrigin.x;
-		const ocY = sprite.pos.y - rayOrigin.y;
-
-		// Project OC onto ray direction to find closest approach
-		const tClosest = ocX * rayDir.x + ocY * rayDir.y;
-
-		// If closest point is behind ray origin, no intersection
-		if (tClosest < 0) {
-			return null;
-		}
-
-		// Distance squared from sprite center to closest point on ray
-		const closestX = rayOrigin.x + tClosest * rayDir.x;
-		const closestY = rayOrigin.y + tClosest * rayDir.y;
-		const distSq =
-			(closestX - sprite.pos.x) ** 2 + (closestY - sprite.pos.y) ** 2;
-
-		const radiusSq = sprite.size * sprite.size;
-		if (distSq > radiusSq) {
-			return null;
-		}
-
-		// Compute entry distance
-		const halfChord = Math.sqrt(radiusSq - distSq);
-		const tEntry = tClosest - halfChord;
-
-		if (tEntry < 0) {
-			return null;
-		}
-
-		// Compute U coordinate: where along the sprite width did we hit?
-		// We use the perpendicular offset from sprite center
-		const hitX = rayOrigin.x + tEntry * rayDir.x;
-		const hitY = rayOrigin.y + tEntry * rayDir.y;
-
-		// Perpendicular direction (90 degrees from ray towards camera right)
-		const perpX = -rayDir.y;
-		const perpY = rayDir.x;
-
-		// Signed offset from sprite center along perpendicular
-		const offsetX = hitX - sprite.pos.x;
-		const offsetY = hitY - sprite.pos.y;
-		const perpOffset = offsetX * perpX + offsetY * perpY;
-
-		// Map to 0-1 range
-		const u = 0.5 + perpOffset / (2 * sprite.size);
-
-		return { distance: tEntry, u: Math.max(0, Math.min(1, u)) };
-	}
-
 	private ensureTexturesExtracted(): void {
 		const { game } = this;
 		if (!this.floorTextureData) {
@@ -166,6 +103,9 @@ export class ThreeDee {
 		}
 		if (!this.helmetSpriteData) {
 			this.helmetSpriteData = this.extractTextureData(game.helmetSpriteImage);
+		}
+		if (!this.frameTextureData) {
+			this.frameTextureData = this.extractTextureData(game.frameImage);
 		}
 	}
 
@@ -192,6 +132,7 @@ export class ThreeDee {
 		const wallTex = this.wallTextureData!;
 		const playerSpriteTex = this.playerSpriteData!;
 		const helmetSpriteTex = this.helmetSpriteData!;
+		const frameTex = this.frameTextureData!;
 		const halfHeight = Constants.LOWRES_HEIGHT / 2;
 
 		// Pre-compute texture dimensions and masks (assumes power-of-2 textures)
@@ -232,6 +173,7 @@ export class ThreeDee {
 				terminalU: 0,
 				numReflections: 0,
 				wasReflection: false,
+				reflectionU: 0,
 				reflectionClut: null,
 			};
 			let distanceSum = 0;
@@ -260,7 +202,7 @@ export class ThreeDee {
 				// Check sprite intersections for this ray segment
 				// Use previousPos and segmentDir (the direction BEFORE any reflection)
 				for (const sprite of this.sprites) {
-					const hit = this.rayCircleIntersect(previousPos, segmentDir, sprite);
+					const hit = rayCircleIntersect(previousPos, segmentDir, sprite);
 					if (hit) {
 						// Check if sprite falls within this step (0 to stepDist from previousPos)
 						if (hit.distance > 0 && hit.distance <= stepDist) {
@@ -518,6 +460,61 @@ export class ThreeDee {
 					}
 				}
 
+				// Render frame on mirrored walls
+				if (ray.wasReflection) {
+					const u = ray.reflectionU;
+					const texX = Math.floor(u * (frameTex.width - 1)) % frameTex.width;
+
+					// Use unclamped wall height for perspective-correct texture mapping
+					const unclampedWallHeight = (Constants.LOWRES_HEIGHT * 30) / distance;
+
+					// Pre-compute constants for frame texture loop
+					const invDoubleUnclampedWallHeight = 0.5 / unclampedWallHeight;
+					const frameTexHM1 = frameTex.height - 1;
+					const frameTexRowStride = frameTex.width * 4;
+					const texXOffset = texX * 4;
+
+					// Incremental v calculation: start value and delta
+					let v =
+						(-wallHeight + unclampedWallHeight) * invDoubleUnclampedWallHeight;
+					const vDelta = invDoubleUnclampedWallHeight;
+
+					for (let yIdx = -wallHeight; yIdx < wallHeight; yIdx++) {
+						const yWall = halfHeight - yIdx;
+
+						if (
+							yWall >= 0 &&
+							yWall < Constants.LOWRES_HEIGHT &&
+							distance < columnDepth[yWall]!
+						) {
+							// texY with bitwise floor and inline clamping
+							let texY = (v * frameTexHM1) | 0;
+							if (texY < 0) texY = 0;
+							else if (texY > frameTexHM1) texY = frameTexHM1;
+
+							const texIdx = texY * frameTexRowStride + texXOffset;
+							const frameAlpha = frameTex.data[texIdx + 3]!;
+
+							// Only draw where frame has opacity
+							if (frameAlpha >= 10) {
+								const color: Rgb8Color = {
+									r: frameTex.data[texIdx]! * brightnessFactor,
+									g: frameTex.data[texIdx + 1]! * brightnessFactor,
+									b: frameTex.data[texIdx + 2]! * brightnessFactor,
+								};
+								clut.applyMut(color);
+
+								const idx = (yWall * Constants.LOWRES_WIDTH + x) * 4;
+								frameBuffer[idx] = color.r;
+								frameBuffer[idx + 1] = color.g;
+								frameBuffer[idx + 2] = color.b;
+								columnDepth[yWall] = distance;
+							}
+						}
+						v += vDelta;
+					}
+				}
+
 				if (ray.isTerminated) {
 					// fill in the wall using texture
 					const u = ray.terminalU;
@@ -526,7 +523,18 @@ export class ThreeDee {
 					// Use unclamped wall height for perspective-correct texture mapping
 					const unclampedWallHeight = (Constants.LOWRES_HEIGHT * 30) / distance;
 
-					for (let yIdx = -1 * wallHeight; yIdx < wallHeight; yIdx++) {
+					// Pre-compute constants for wall texture loop
+					const invDoubleUnclampedWallHeight = 0.5 / unclampedWallHeight;
+					const wallTexHM1 = wallTex.height - 1;
+					const wallTexRowStride = wallTex.width * 4;
+					const texXOffset = texX * 4;
+
+					// Incremental v calculation: start value and delta
+					let v =
+						(-wallHeight + unclampedWallHeight) * invDoubleUnclampedWallHeight;
+					const vDelta = invDoubleUnclampedWallHeight;
+
+					for (let yIdx = -wallHeight; yIdx < wallHeight; yIdx++) {
 						const yWall = halfHeight - yIdx;
 
 						if (
@@ -534,21 +542,13 @@ export class ThreeDee {
 							yWall < Constants.LOWRES_HEIGHT &&
 							distance < columnDepth[yWall]!
 						) {
-							// Calculate V coordinate using unclamped height for perspective correction
-							// This ensures correct texture mapping even when close to walls
-							const v =
-								(yIdx + unclampedWallHeight) / (2 * unclampedWallHeight);
-							const texY = Math.max(
-								0,
-								Math.min(
-									wallTex.height - 1,
-									Math.floor(v * (wallTex.height - 1)),
-								),
-							);
-							const texIdx = (texY * wallTex.width + texX) * 4;
+							// texY with bitwise floor and inline clamping
+							let texY = (v * wallTexHM1) | 0;
+							if (texY < 0) texY = 0;
+							else if (texY > wallTexHM1) texY = wallTexHM1;
 
-							// Sample texture and apply brightness
-							const brightnessFactor = brightness / 255;
+							const texIdx = texY * wallTexRowStride + texXOffset;
+
 							const color: Rgb8Color = {
 								r: wallTex.data[texIdx]! * brightnessFactor,
 								g: wallTex.data[texIdx + 1]! * brightnessFactor,
@@ -562,6 +562,7 @@ export class ThreeDee {
 							frameBuffer[idx + 2] = color.b;
 							columnDepth[yWall] = distance;
 						}
+						v += vDelta;
 					}
 
 					break;
@@ -579,47 +580,6 @@ export class ThreeDee {
 				}
 				numReflections = ray.numReflections;
 			}
-
-			/*
-
-            // OLD DRAWING CODE:
-			if (rayPoints.length >= 2) {
-				// Distance to first wall hit
-				let distanceSum = 0;
-				for (let i = 1; i < rayPoints.length; i++) {
-					const dx = rayPoints[i]!.x - rayPoints[i - 1]!.x;
-					const dy = rayPoints[i]!.y - rayPoints[i - 1]!.y;
-					distanceSum += Math.hypot(dx, dy);
-				}
-				let distance = distanceSum;
-
-				// Fisheye correction: multiply by cos of angle offset
-				distance *= Math.cos(angleOffset);
-
-				// Calculate wall height (inverse proportion to distance)
-				const wallHeight = Math.min(
-					Constants.LOWRES_HEIGHT,
-					(Constants.LOWRES_HEIGHT * 50) / distance,
-				);
-
-				const wallTop = Math.floor((Constants.LOWRES_HEIGHT - wallHeight) / 2);
-				const wallBottom = Math.floor(
-					(Constants.LOWRES_HEIGHT + wallHeight) / 2,
-				);
-
-				// Brightness based on distance
-				const brightness = Math.max(0, Math.min(255, 255 - distance * 2));
-
-				// Fill vertical column
-				for (let y = wallTop; y < wallBottom; y++) {
-					const idx = (y * Constants.LOWRES_WIDTH + x) * 3;
-					frameBuffer[idx] = brightness;
-					frameBuffer[idx + 1] = brightness;
-					frameBuffer[idx + 2] = brightness;
-				}
-			}
-
-             */
 		}
 
 		this.whiteMaskPixelCount = whiteHelmetPixelCount;

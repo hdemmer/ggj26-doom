@@ -1,8 +1,8 @@
 const MAX_STEPS = 20;
 
 export const Constants = {
-	WIDTH: 640,
-	HEIGHT: 480,
+	WIDTH: 1280,
+	HEIGHT: 960,
 	LOWRES_WIDTH: 640,
 	LOWRES_HEIGHT: 480,
 	EPSILON: 0.01,
