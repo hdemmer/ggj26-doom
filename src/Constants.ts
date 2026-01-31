@@ -15,4 +15,5 @@ export const Constants = {
 	FOV: Math.PI / 3,
 	TURN_ANGLE_STEP: Math.PI / 60,
 	REFLECTION_CLUT,
+	PLAYER_Y_FUDGE: 20,
 };

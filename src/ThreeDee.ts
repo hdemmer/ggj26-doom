@@ -231,7 +231,7 @@ export class ThreeDee {
 								const spriteHeight = Math.floor(
 									Math.min(
 										Constants.LOWRES_HEIGHT,
-										(Constants.LOWRES_HEIGHT * 30) / spriteCorrectedDist,
+										(Constants.LOWRES_HEIGHT * 2 * sprite.size) / spriteCorrectedDist,
 									),
 								);
 
@@ -243,10 +243,10 @@ export class ThreeDee {
 
 								const texX = Math.floor(hit.u * (spriteTex.width - 1));
 								const unclampedSpriteHeight =
-									(Constants.LOWRES_HEIGHT * 30) / spriteCorrectedDist;
+									(Constants.LOWRES_HEIGHT * 2 * sprite.size) / spriteCorrectedDist;
 
 								for (let yIdx = -spriteHeight; yIdx < spriteHeight; yIdx++) {
-									const yScreen = halfHeight - yIdx;
+									const yScreen = halfHeight - yIdx + Constants.PLAYER_Y_FUDGE;
 									if (yScreen >= 0 && yScreen < Constants.LOWRES_HEIGHT) {
 										const v =
 											(yIdx + unclampedSpriteHeight) /
