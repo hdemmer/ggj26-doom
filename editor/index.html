@@ -141,6 +141,7 @@
         <div class="tool-group">
             <button id="btn-mirror">Toggle Mirror Edge</button>
             <button id="btn-door">Toggle Door Edge</button>
+            <button id="btn-split">Split Edge</button>
         </div>
 
         <div class="tool-group">
@@ -174,17 +175,18 @@
         const output = document.getElementById('output');
 
         const POINT_RADIUS = 8;
-        const GRID_SIZE = 20;
+        const GRID_SIZE = 10;
+        const ZOOM = 20;
 
         let level = {
             polyline: [
-                { x: 200, y: 150 },
-                { x: 600, y: 150 },
-                { x: 600, y: 450 },
-                { x: 200, y: 450 }
+                { x: 10, y: 5 },
+                { x: 20, y: 5 },
+                { x: 20, y: 15 },
+                { x: 10, y: 15 }
             ],
             heartPositions: [],
-            playerStartPos: { x: 400, y: 300 },
+            playerStartPos: { x: 15, y: 10 },
             playerStartAngle: 0,
             mirrorIndices: [],
             doorIndices: []
@@ -248,6 +250,25 @@
             }
         };
 
+        const btnSplit = document.getElementById('btn-split');
+        btnSplit.onclick = () => {
+            if (selectedEdge !== null) {
+                const a = level.polyline[selectedEdge];
+                const b = level.polyline[(selectedEdge + 1) % level.polyline.length];
+                const midpoint = {
+                    x: snapToGrid((a.x + b.x) / 2),
+                    y: snapToGrid((a.y + b.y) / 2)
+                };
+                // Adjust mirror/door indices when inserting
+                level.mirrorIndices = level.mirrorIndices.map(i => i > selectedEdge ? i + 1 : i);
+                level.doorIndices = level.doorIndices.map(i => i > selectedEdge ? i + 1 : i);
+                level.polyline.splice(selectedEdge + 1, 0, midpoint);
+                selectedEdge = null;
+                render();
+                updateOutput();
+            }
+        };
+
         btnDelete.onclick = () => {
             if (selected) {
                 if (selected.type === 'polyline' && level.polyline.length > 3) {
@@ -272,13 +293,13 @@
             if (confirm('Clear all points?')) {
                 level = {
                     polyline: [
-                        { x: 200, y: 150 },
-                        { x: 600, y: 150 },
-                        { x: 600, y: 450 },
-                        { x: 200, y: 450 }
+                        { x: 10, y: 5 },
+                        { x: 20, y: 5 },
+                        { x: 20, y: 15 },
+                        { x: 10, y: 15 }
                     ],
                     heartPositions: [],
-                    playerStartPos: { x: 400, y: 300 },
+                    playerStartPos: { x: 15, y: 10 },
                     playerStartAngle: 0,
                     mirrorIndices: [],
                     doorIndices: []
@@ -298,8 +319,8 @@
         function getMousePos(e) {
             const rect = canvas.getBoundingClientRect();
             return {
-                x: e.clientX - rect.left,
-                y: e.clientY - rect.top
+                x: (e.clientX - rect.left) / ZOOM,
+                y: (e.clientY - rect.top) / ZOOM
             };
         }
 
@@ -308,19 +329,20 @@
         }
 
         function findPointAt(pos) {
+            const hitRadius = POINT_RADIUS / ZOOM;
             // Check player
-            if (dist(pos, level.playerStartPos) < POINT_RADIUS) {
+            if (dist(pos, level.playerStartPos) < hitRadius) {
                 return { type: 'player', index: 0 };
             }
             // Check hearts
             for (let i = 0; i < level.heartPositions.length; i++) {
-                if (dist(pos, level.heartPositions[i]) < POINT_RADIUS) {
+                if (dist(pos, level.heartPositions[i]) < hitRadius) {
                     return { type: 'heart', index: i };
                 }
             }
             // Check polyline
             for (let i = 0; i < level.polyline.length; i++) {
-                if (dist(pos, level.polyline[i]) < POINT_RADIUS) {
+                if (dist(pos, level.polyline[i]) < hitRadius) {
                     return { type: 'polyline', index: i };
                 }
             }
@@ -339,12 +361,13 @@
         }
 
         function findEdgeAt(pos) {
+            const hitDist = 10 / ZOOM;
             const poly = level.polyline;
             for (let i = 0; i < poly.length; i++) {
                 const a = poly[i];
                 const b = poly[(i + 1) % poly.length];
                 const result = pointToLineDistance(pos, a, b);
-                if (result.dist < 10 && result.t > 0.1 && result.t < 0.9) {
+                if (result.dist < hitDist && result.t > 0.1 && result.t < 0.9) {
                     return { index: i, t: result.t };
                 }
             }
@@ -457,13 +480,14 @@
             // Draw grid
             ctx.strokeStyle = '#1a3a5c';
             ctx.lineWidth = 1;
-            for (let x = 0; x <= canvas.width; x += GRID_SIZE) {
+            const gridScreenSize = GRID_SIZE * ZOOM;
+            for (let x = 0; x <= canvas.width; x += gridScreenSize) {
                 ctx.beginPath();
                 ctx.moveTo(x, 0);
                 ctx.lineTo(x, canvas.height);
                 ctx.stroke();
             }
-            for (let y = 0; y <= canvas.height; y += GRID_SIZE) {
+            for (let y = 0; y <= canvas.height; y += gridScreenSize) {
                 ctx.beginPath();
                 ctx.moveTo(0, y);
                 ctx.lineTo(canvas.width, y);
@@ -475,9 +499,9 @@
                 // Fill with transparency first
                 ctx.fillStyle = 'rgba(233, 69, 96, 0.1)';
                 ctx.beginPath();
-                ctx.moveTo(level.polyline[0].x, level.polyline[0].y);
+                ctx.moveTo(level.polyline[0].x * ZOOM, level.polyline[0].y * ZOOM);
                 for (let i = 1; i < level.polyline.length; i++) {
-                    ctx.lineTo(level.polyline[i].x, level.polyline[i].y);
+                    ctx.lineTo(level.polyline[i].x * ZOOM, level.polyline[i].y * ZOOM);
                 }
                 ctx.closePath();
                 ctx.fill();
@@ -492,8 +516,8 @@
                     const isSelected = selectedEdge === i;
 
                     ctx.beginPath();
-                    ctx.moveTo(a.x, a.y);
-                    ctx.lineTo(b.x, b.y);
+                    ctx.moveTo(a.x * ZOOM, a.y * ZOOM);
+                    ctx.lineTo(b.x * ZOOM, b.y * ZOOM);
 
                     if (isMirror) {
                         ctx.strokeStyle = '#00d4ff';
@@ -509,8 +533,8 @@
 
                     // Draw edge index at midpoint
                     if (isMirror || isDoor || isSelected) {
-                        const midX = (a.x + b.x) / 2;
-                        const midY = (a.y + b.y) / 2;
+                        const midX = (a.x + b.x) / 2 * ZOOM;
+                        const midY = (a.y + b.y) / 2 * ZOOM;
                         ctx.fillStyle = isMirror ? '#00d4ff' : isDoor ? '#f5a623' : '#fff';
                         ctx.font = 'bold 12px sans-serif';
                         ctx.textAlign = 'center';
@@ -523,7 +547,7 @@
                 level.polyline.forEach((p, i) => {
                     const isSelected = selected && selected.type === 'polyline' && selected.index === i;
                     ctx.beginPath();
-                    ctx.arc(p.x, p.y, POINT_RADIUS, 0, Math.PI * 2);
+                    ctx.arc(p.x * ZOOM, p.y * ZOOM, POINT_RADIUS, 0, Math.PI * 2);
                     ctx.fillStyle = isSelected ? '#fff' : '#e94560';
                     ctx.fill();
                     ctx.strokeStyle = '#fff';
@@ -535,7 +559,7 @@
                     ctx.font = '10px sans-serif';
                     ctx.textAlign = 'center';
                     ctx.textBaseline = 'middle';
-                    ctx.fillText(i.toString(), p.x, p.y);
+                    ctx.fillText(i.toString(), p.x * ZOOM, p.y * ZOOM);
                 });
             }
 
@@ -543,7 +567,7 @@
             level.heartPositions.forEach((p, i) => {
                 const isSelected = selected && selected.type === 'heart' && selected.index === i;
                 ctx.beginPath();
-                ctx.arc(p.x, p.y, POINT_RADIUS, 0, Math.PI * 2);
+                ctx.arc(p.x * ZOOM, p.y * ZOOM, POINT_RADIUS, 0, Math.PI * 2);
                 ctx.fillStyle = isSelected ? '#fff' : '#ff6b6b';
                 ctx.fill();
                 ctx.strokeStyle = '#fff';
@@ -555,13 +579,13 @@
                 ctx.font = '10px sans-serif';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
-                ctx.fillText('\u2665', p.x, p.y);
+                ctx.fillText('\u2665', p.x * ZOOM, p.y * ZOOM);
             });
 
             // Draw player
             const isPlayerSelected = selected && selected.type === 'player';
-            const px = level.playerStartPos.x;
-            const py = level.playerStartPos.y;
+            const px = level.playerStartPos.x * ZOOM;
+            const py = level.playerStartPos.y * ZOOM;
 
             ctx.beginPath();
             ctx.arc(px, py, POINT_RADIUS + 2, 0, Math.PI * 2);

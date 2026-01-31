@@ -11,6 +11,7 @@ export class Level {
 		public readonly root: Simplex,
 		public readonly heartPositions: IVec2[] = [],
 		public readonly playerStartPos: IVec2 = { x: 160, y: 170 },
+		public readonly playerStartAngle: number = 0,
 	) {}
 
 	findSimplex(p: IVec2): Simplex | null {
@@ -57,7 +58,10 @@ export class Level {
 				const midY = (side.start.y + side.end.y) / 2;
 				ctx.beginPath();
 				ctx.moveTo(midX, midY);
-				ctx.lineTo(midX + side.normal.x * normalLength, midY + side.normal.y * normalLength);
+				ctx.lineTo(
+					midX + side.normal.x * normalLength,
+					midY + side.normal.y * normalLength,
+				);
 				ctx.stroke();
 			}
 		}

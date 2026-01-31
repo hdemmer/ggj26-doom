@@ -4,6 +4,7 @@ import type { IVec2 } from "@/IVec2.ts";
 import type { LevelShape } from "@/LevelShape.ts";
 import { Level } from "@/level.ts";
 import { Simplex } from "@/simplex.ts";
+import earcut from "earcut";
 
 function sign(p1: IVec2, p2: IVec2, p3: IVec2): number {
 	return (p1.x - p3.x) * (p2.y - p3.y) - (p2.x - p3.x) * (p1.y - p3.y);
@@ -78,33 +79,6 @@ function getSimplexEdges(simplex: Simplex): [IVec2, IVec2][] {
 	];
 }
 
-function isEar(
-	polygon: IVec2[],
-	prev: number,
-	curr: number,
-	next: number,
-): boolean {
-	const a = polygon[prev]!;
-	const b = polygon[curr]!;
-	const c = polygon[next]!;
-
-	// Check if the triangle is convex (counter-clockwise)
-	const cross = (b.x - a.x) * (c.y - a.y) - (b.y - a.y) * (c.x - a.x);
-	if (cross <= 0) {
-		return false;
-	}
-
-	// Check if any other vertex is inside this triangle
-	for (let i = 0; i < polygon.length; i++) {
-		if (i === prev || i === curr || i === next) continue;
-		if (pointInTriangle(polygon[i]!, a, b, c)) {
-			return false;
-		}
-	}
-
-	return true;
-}
-
 function edgesMatch(a1: IVec2, a2: IVec2, b1: IVec2, b2: IVec2): boolean {
 	return (
 		(pointsEqual(a1, b1) && pointsEqual(a2, b2)) ||
@@ -131,67 +105,32 @@ function findSharedEdge(
 }
 
 export function initLevelFromShape(levelShape: LevelShape): Level {
-	const { polyline, heartPositions, playerStartPos } = levelShape;
+	const {
+		polyline,
+		heartPositions,
+		playerStartPos,
+		playerStartAngle,
+		mirrorIndices,
+		doorIndices,
+	} = levelShape;
 	if (polyline.length < 3) {
 		throw new Error("Polyline must have at least 3 points");
 	}
 
-	// Copy the polygon to avoid mutating the input
-	const polygon = [...polyline];
-
-	// Ensure counter-clockwise winding
-	let area = 0;
-	for (let i = 0; i < polygon.length; i++) {
-		const j = (i + 1) % polygon.length;
-		area += polygon[i]!.x * polygon[j]!.y;
-		area -= polygon[j]!.x * polygon[i]!.y;
-	}
-	if (area > 0) {
-		polygon.reverse();
+	// Flatten polygon for earcut
+	const flatCoords: number[] = [];
+	for (const p of polyline) {
+		flatCoords.push(p.x, p.y);
 	}
 
-	// Ear clipping triangulation
+	// Triangulate using earcut
+	const indices = earcut(flatCoords);
 	const triangles: [IVec2, IVec2, IVec2][] = [];
-	const indices = polygon.map((_, i) => i);
-
-	while (indices.length > 3) {
-		let earFound = false;
-		for (let i = 0; i < indices.length; i++) {
-			const prev = (i - 1 + indices.length) % indices.length;
-			const next = (i + 1) % indices.length;
-
-			const prevIdx = indices[prev]!;
-			const currIdx = indices[i]!;
-			const nextIdx = indices[next]!;
-
-			// Build a temporary polygon from current indices for ear testing
-			const tempPoly = indices.map((idx) => polygon[idx]!);
-
-			if (isEar(tempPoly, prev, i, next)) {
-				triangles.push([
-					polygon[prevIdx]!,
-					polygon[currIdx]!,
-					polygon[nextIdx]!,
-				]);
-				indices.splice(i, 1);
-				earFound = true;
-				break;
-			}
-		}
-		if (!earFound) {
-			// Fallback: just take the first three vertices
-			const [i0, i1, i2] = [indices[0]!, indices[1]!, indices[2]!];
-			triangles.push([polygon[i0]!, polygon[i1]!, polygon[i2]!]);
-			indices.splice(1, 1);
-		}
-	}
-
-	// Add the last triangle
-	if (indices.length === 3) {
+	for (let i = 0; i < indices.length; i += 3) {
 		triangles.push([
-			polygon[indices[0]!]!,
-			polygon[indices[1]!]!,
-			polygon[indices[2]!]!,
+			polyline[indices[i]!]!,
+			polyline[indices[i + 1]!]!,
+			polyline[indices[i + 2]!]!,
 		]);
 	}
 
@@ -211,7 +150,38 @@ export function initLevelFromShape(levelShape: LevelShape): Level {
 		}
 	}
 
-	return new Level(simplices, simplices[0]!, heartPositions, playerStartPos);
+	// Mark mirrors and doors based on original polyline edge indices
+	for (const simplex of simplices) {
+		for (const side of simplex.sides) {
+			// Only consider boundary sides (walls)
+			if (side.simplex !== null) continue;
+
+			// Check if this side matches any original polyline edge
+			for (let edgeIdx = 0; edgeIdx < polyline.length; edgeIdx++) {
+				const edgeStart = polyline[edgeIdx]!;
+				const edgeEnd = polyline[(edgeIdx + 1) % polyline.length]!;
+
+				if (edgesMatch(side.start, side.end, edgeStart, edgeEnd)) {
+					if (mirrorIndices.includes(edgeIdx)) {
+						side.isMirror = true;
+						side.mirrorClut = Clut.makeDarken();
+					}
+					if (doorIndices.includes(edgeIdx)) {
+						side.isDoor = true;
+					}
+					break;
+				}
+			}
+		}
+	}
+
+	return new Level(
+		simplices,
+		simplices[0]!,
+		heartPositions,
+		playerStartPos,
+		playerStartAngle,
+	);
 }
 
 export function initLevel(): Level {

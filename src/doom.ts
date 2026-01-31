@@ -95,8 +95,8 @@ export class Game {
 		private readonly ctx: Ctx,
 		images: GameImages,
 	) {
-		this.level = initLevel();
-		// this.level = initLevelFromShape(LEVELS[0]!);
+		// this.level = initLevel();
+		this.level = initLevelFromShape(LEVELS[0]!);
 		// this.level = initLevelFromShape(
 		// 	[
 		// 		{ x: 50, y: 50 },
