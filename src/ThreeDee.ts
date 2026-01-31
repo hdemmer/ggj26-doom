@@ -32,6 +32,7 @@ export class ThreeDee {
 	private maskSpriteData: ImageData | null = null;
 	private textureCanvas: OffscreenCanvas | null = null;
 	private textureCtx: OffscreenCanvasRenderingContext2D | null = null;
+	public whiteMaskPixelCount: number = 0;
 
 	constructor(public readonly game: Game) {
 		this.frameBuffer = new Uint8Array(
@@ -154,12 +155,15 @@ export class ThreeDee {
 		const player = game.player;
 		const level = game.level;
 
+		// Count fully white mask sprite pixels rendered this frame
+		let whiteMaskPixelCount = 0;
+
 		// Clear frame buffer
 		frameBuffer.fill(0);
 
 		const playerSimplex = this.game.level.findSimplex(player.pos);
 		if (!playerSimplex) {
-			return;
+			return 0;
 		}
 
 		this.ensureTexturesExtracted();
@@ -205,6 +209,9 @@ export class ThreeDee {
 			let previousWallHeight = Constants.LOWRES_HEIGHT;
 			const previousPos: IVec2 = { x: ray.pos.x, y: ray.pos.y };
 
+			// Maintain a color lookup table for this ray
+			const clut = Clut.makeIdentity();
+
 			for (let i = 0; i < Constants.MAX_STEPS; i++) {
 				propagateRayMut(ray);
 				const dx = ray.pos.x - previousPos.x;
@@ -231,7 +238,8 @@ export class ThreeDee {
 								const spriteHeight = Math.floor(
 									Math.min(
 										Constants.LOWRES_HEIGHT,
-										(Constants.LOWRES_HEIGHT * 2 * sprite.size) / spriteCorrectedDist,
+										(Constants.LOWRES_HEIGHT * 2 * sprite.size) /
+											spriteCorrectedDist,
 									),
 								);
 
@@ -243,7 +251,8 @@ export class ThreeDee {
 
 								const texX = Math.floor(hit.u * (spriteTex.width - 1));
 								const unclampedSpriteHeight =
-									(Constants.LOWRES_HEIGHT * 2 * sprite.size) / spriteCorrectedDist;
+									(Constants.LOWRES_HEIGHT * 2 * sprite.size) /
+									spriteCorrectedDist;
 
 								for (let yIdx = -spriteHeight; yIdx < spriteHeight; yIdx++) {
 									const yScreen = halfHeight - yIdx + Constants.PLAYER_Y_FUDGE;
@@ -264,15 +273,21 @@ export class ThreeDee {
 
 										const maskAlpha = maskSpriteTex.data[texIdx + 3]!;
 										if (maskAlpha >= 10) {
+											const maskR = maskSpriteTex.data[texIdx]!;
+											const maskG = maskSpriteTex.data[texIdx + 1]!;
+											const maskB = maskSpriteTex.data[texIdx + 2]!;
+
+											// Count fully white mask pixels
+											if (maskR === 255 && maskG === 255 && maskB === 255) {
+												whiteMaskPixelCount++;
+											}
+
 											const color: Rgb8Color = {
-												r: maskSpriteTex.data[texIdx]! * spriteBrightnessFactor,
-												g:
-													maskSpriteTex.data[texIdx + 1]! *
-													spriteBrightnessFactor,
-												b:
-													maskSpriteTex.data[texIdx + 2]! *
-													spriteBrightnessFactor,
+												r: maskR * spriteBrightnessFactor,
+												g: maskG * spriteBrightnessFactor,
+												b: maskB * spriteBrightnessFactor,
 											};
+											clut.applyMut(color);
 
 											const idx = (yScreen * Constants.LOWRES_WIDTH + x) * 3;
 											frameBuffer[idx] = color.r;
@@ -291,6 +306,7 @@ export class ThreeDee {
 														spriteTex.data[texIdx + 2]! *
 														spriteBrightnessFactor,
 												};
+												clut.applyMut(color);
 
 												const idx = (yScreen * Constants.LOWRES_WIDTH + x) * 3;
 												frameBuffer[idx] = color.r;
@@ -354,6 +370,7 @@ export class ThreeDee {
 							g: ceilingTex.data[texIdx + 1]! * brightnessFactor,
 							b: ceilingTex.data[texIdx + 2]! * brightnessFactor,
 						};
+						clut.applyMut(color);
 
 						const idx = (yCeil * Constants.LOWRES_WIDTH + x) * 3;
 						frameBuffer[idx] = color.r;
@@ -385,6 +402,7 @@ export class ThreeDee {
 							b: floorTex.data[texIdx + 2]! * brightnessFactor,
 						};
 
+						clut.applyMut(color);
 						const idx = (yFloor * Constants.LOWRES_WIDTH + x) * 3;
 						frameBuffer[idx] = color.r;
 						frameBuffer[idx + 1] = color.g;
@@ -428,6 +446,7 @@ export class ThreeDee {
 								g: wallTex.data[texIdx + 1]! * brightnessFactor,
 								b: wallTex.data[texIdx + 2]! * brightnessFactor,
 							};
+							clut.applyMut(color);
 
 							const idx = (yWall * Constants.LOWRES_WIDTH + x) * 3;
 							frameBuffer[idx] = color.r;
@@ -442,6 +461,10 @@ export class ThreeDee {
 				previousPos.x = ray.pos.x;
 				previousPos.y = ray.pos.y;
 				previousWallHeight = wallHeight;
+				// Apply pre-generated unitary transformation on reflection
+				if (ray.numReflections > numReflections) {
+					clut.multiplyMut(Constants.REFLECTION_CLUTS[ray.numReflections - 1]!);
+				}
 				numReflections = ray.numReflections;
 			}
 
@@ -486,6 +509,8 @@ export class ThreeDee {
 
              */
 		}
+
+		this.whiteMaskPixelCount = whiteMaskPixelCount;
 	}
 
 	draw(ctx: Ctx) {

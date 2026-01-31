@@ -1,6 +1,10 @@
 /** biome-ignore-all lint/style/noNonNullAssertion: asdf */
 export type Rgb8Color = { r: number; g: number; b: number };
 
+function clamp(value: number): number {
+	return Math.max(0, Math.min(255, Math.round(value)));
+}
+
 export class Clut {
 	constructor(public data: Float32Array<ArrayBuffer>) {}
 
@@ -11,9 +15,9 @@ export class Clut {
 	applyMut(color: Rgb8Color) {
 		const d = this.data;
 		const { r, g, b } = color;
-		color.r = d[0]! * r + d[1]! * g + d[2]! * b;
-		color.g = d[3]! * r + d[4]! * g + d[5]! * b;
-		color.b = d[6]! * r + d[7]! * g + d[8]! * b;
+		color.r = clamp(d[0]! * r + d[1]! * g + d[2]! * b);
+		color.g = clamp(d[3]! * r + d[4]! * g + d[5]! * b);
+		color.b = clamp(d[6]! * r + d[7]! * g + d[8]! * b);
 	}
 
 	multiplyMut(other: Clut) {
@@ -53,5 +57,62 @@ export class Clut {
 		d[6] = 0;
 		d[7] = 0;
 		d[8] = 1;
+	}
+
+	/**
+	 * Generate a random unitary (orthogonal) 3x3 matrix by composing
+	 * random rotations around the three axes.
+	 */
+	static makeRandomUnitary(): Clut {
+		const ax = Math.random() * Math.PI * 2;
+		const ay = Math.random() * Math.PI * 2;
+		const az = Math.random() * Math.PI * 2;
+
+		const cx = Math.cos(ax),
+			sx = Math.sin(ax);
+		const cy = Math.cos(ay),
+			sy = Math.sin(ay);
+		const cz = Math.cos(az),
+			sz = Math.sin(az);
+
+		// Combined rotation matrix Rz * Ry * Rx
+		return new Clut(
+			Float32Array.from([
+				cy * cz,
+				sx * sy * cz - cx * sz,
+				cx * sy * cz + sx * sz,
+				cy * sz,
+				sx * sy * sz + cx * cz,
+				cx * sy * sz - sx * cz,
+				-sy,
+				sx * cy,
+				cx * cy,
+			]),
+		);
+	}
+
+	/**
+	 * Create a hue shift matrix - rotation around the (1,1,1) luminance axis
+	 */
+	static makeHueShift(angle: number): Clut {
+		const c = Math.cos(angle);
+		const s = Math.sin(angle);
+		const t = 1 - c;
+		const sq3 = 1 / Math.sqrt(3);
+
+		// Rodrigues rotation formula around axis (1/√3, 1/√3, 1/√3)
+		return new Clut(
+			Float32Array.from([
+				t / 3 + c,
+				t / 3 - sq3 * s,
+				t / 3 + sq3 * s,
+				t / 3 + sq3 * s,
+				t / 3 + c,
+				t / 3 - sq3 * s,
+				t / 3 - sq3 * s,
+				t / 3 + sq3 * s,
+				t / 3 + c,
+			]),
+		);
 	}
 }

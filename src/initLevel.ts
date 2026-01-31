@@ -93,7 +93,7 @@ export function initLevel(): Level {
 
 	second.sides[0].isMirror = true;
 
-	return new Level(simplices, root);
+	// return new Level(simplices, root);
 
 	for (let i = 2; i < 5; i++) {
 		// Pick a random simplex to grow from
@@ -109,7 +109,7 @@ export function initLevel(): Level {
 			const p2Index = (sideIndex + 1) % 3;
 			const oppositeIndex = (sideIndex + 2) % 3;
 
-			const l = 1.5 - Math.random() * 0.8;
+			const l = 1.2 - Math.random() * 0.3;
 			const newPoint: IVec2 = {
 				x:
 					currentSimplex.points[p1Index]!.x +

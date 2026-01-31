@@ -79,5 +79,7 @@ export function propagateRayMut(ray: Ray): void {
 				}
 			}
 		}
+
+		// ray outside world?
 	}
 }
