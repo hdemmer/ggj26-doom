@@ -50,14 +50,14 @@ export class ThreeDee {
 				// Calculate wall height (inverse proportion to distance)
 				const wallHeight = Math.min(
 					Constants.HEIGHT,
-					(Constants.HEIGHT * 50) / distance,
+					(Constants.HEIGHT * 5) / distance,
 				);
 
 				const wallTop = Math.floor((Constants.HEIGHT - wallHeight) / 2);
 				const wallBottom = Math.floor((Constants.HEIGHT + wallHeight) / 2);
 
 				// Brightness based on distance
-				const brightness = Math.max(0, Math.min(255, 255 - distance * 0.5));
+				const brightness = Math.max(0, Math.min(255, 255 - distance * 5));
 
 				// Fill vertical column
 				for (let y = wallTop; y < wallBottom; y++) {

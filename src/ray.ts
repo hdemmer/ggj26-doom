@@ -6,4 +6,5 @@ export interface Ray {
 	pos: IVec2;
 	dir: IVec2;
 	sideIndex: number; // -1 if not on a side, otherwise the index of the side we entered from
+	isTerminated: boolean;
 }

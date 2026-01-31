@@ -91,21 +91,19 @@ export function initLevel(): Level {
 
 	const simplices: Simplex[] = [root, second];
 
-	let currentSimplex = root;
-	for (let i = 1; i < 5; i++) {
-		// Try sides in random order
+	for (let i = 2; i < 5; i++) {
+		// Pick a random simplex to grow from
+		const currentSimplex =
+			simplices[Math.floor(Math.random() * simplices.length)]!;
+
 		const sides = [0, 1, 2];
-		for (let j = sides.length - 1; j > 0; j--) {
-			const k = Math.floor(Math.random() * (j + 1));
-			[sides[j], sides[k]] = [sides[k]!, sides[j]!];
-		}
 
 		let newS: Simplex | null = null;
 
-		for (const side of sides) {
-			const p1Index = side;
-			const p2Index = (side + 1) % 3;
-			const oppositeIndex = (side + 2) % 3;
+		for (const sideIndex of sides) {
+			const p1Index = sideIndex;
+			const p2Index = (sideIndex + 1) % 3;
+			const oppositeIndex = (sideIndex + 2) % 3;
 
 			const l = 1.5 - Math.random() * 0.8;
 			const newPoint: IVec2 = {
@@ -188,7 +186,7 @@ export function initLevel(): Level {
 					currentSimplex.points[p2Index]!,
 					newPoint,
 				]);
-				currentSimplex.connectSimplexOnSide(side, newS);
+				currentSimplex.connectSimplexOnSide(sideIndex, newS);
 				newS.connectSimplexOnSide(0, currentSimplex);
 				break;
 			}
@@ -196,7 +194,6 @@ export function initLevel(): Level {
 
 		if (newS) {
 			simplices.push(newS);
-			currentSimplex = newS;
 		}
 	}
 

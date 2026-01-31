@@ -20,6 +20,7 @@ export interface SimplexSide {
 	end: IVec2;
 	normal: IVec2;
 	simplex: Simplex | null;
+	isMirror: boolean;
 }
 
 export class Simplex {
@@ -48,6 +49,7 @@ export class Simplex {
 				end,
 				normal,
 				simplex: null,
+				isMirror: false,
 			});
 		}
 
@@ -122,26 +124,30 @@ function propagateRayMut(ray: Ray): void {
 				// Find the side index in the NEW simplex that connects back to the OLD simplex
 				const newSideIndex = side.simplex.findSideIndexForSimplex(simplex);
 				ray.sideIndex = newSideIndex;
-				if (newSideIndex !== -1) {
-					// move pos a bit into the new simplex to avoid precision issues
-					const hitSide = side.simplex.sides[newSideIndex]!;
-					// The normal points outward from the new simplex, so we subtract it
-					ray.pos.x -= hitSide.normal.x * Constants.EPSILON;
-					ray.pos.y -= hitSide.normal.y * Constants.EPSILON;
-				}
+				console.log("newSideIndex", newSideIndex);
 
 				return;
 			} else {
-				// no neighbor, reflect ray on side normal
-				const normal = side.normal;
-				const dot = dir.x * normal.x + dir.y * normal.y;
-				dir.x = dir.x - 2 * dot * normal.x;
-				dir.y = dir.y - 2 * dot * normal.y;
-				// move pos a bit away from the wall to avoid precision issues
-				ray.pos.x = intersection.x + normal.x * Constants.EPSILON;
-				ray.pos.y = intersection.y + normal.y * Constants.EPSILON;
-				ray.sideIndex = i; // now on this side after reflection
-				return;
+				if (side.isMirror) {
+					// no neighbor, reflect ray on side normal
+					const normal = side.normal;
+					const dot = dir.x * normal.x + dir.y * normal.y;
+					dir.x = dir.x - 2 * dot * normal.x;
+					dir.y = dir.y - 2 * dot * normal.y;
+					// move pos a bit away from the wall to avoid precision issues
+					ray.pos.x = intersection.x + normal.x * Constants.EPSILON;
+					ray.pos.y = intersection.y + normal.y * Constants.EPSILON;
+					ray.sideIndex = i; // now on this side after reflection
+					return;
+				} else {
+					// ray terminates
+					console.log("ray terminated at wall");
+					ray.pos.x = intersection.x;
+					ray.pos.y = intersection.y;
+					ray.sideIndex = -1;
+					ray.isTerminated = true;
+					return;
+				}
 			}
 		}
 	}
@@ -188,9 +194,13 @@ export class Level {
 			pos: { ...origin },
 			dir: { ...direction },
 			sideIndex: -1,
+			isTerminated: false,
 		};
 		for (let i = 0; i < Constants.MAX_STEPS; i++) {
 			result.push({ ...ray.pos });
+			if (ray.isTerminated) {
+				break;
+			}
 			propagateRayMut(ray);
 		}
 	}
@@ -218,11 +228,11 @@ export class Game {
 		const { ctx } = this;
 		const { level, player } = this;
 
-		this.threeDee.draw(ctx);
-
 		this.time += deltaTime;
 		ctx.fillStyle = "black";
 		ctx.fillRect(0, 0, Constants.WIDTH, Constants.HEIGHT);
+
+		this.threeDee.draw(ctx);
 
 		level.draw(ctx);
 		player.draw(ctx);
