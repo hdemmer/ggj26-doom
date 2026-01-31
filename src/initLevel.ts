@@ -1,4 +1,5 @@
 /** biome-ignore-all lint/style/noNonNullAssertion: asdf */
+import { Clut } from "@/Clut.ts";
 import { Level, Simplex } from "@/doom.ts";
 import type { IVec2 } from "@/IVec2.ts";
 
@@ -83,7 +84,7 @@ export function initLevel(): Level {
 	]);
 	const second = new Simplex(1, [
 		{ x: 200, y: 100 },
-		{ x: 200, y: 200 },
+		{ x: 210, y: 200 },
 		{ x: 100, y: 200 },
 	]);
 	root.connectSimplexOnSide(1, second);
@@ -91,9 +92,12 @@ export function initLevel(): Level {
 
 	const simplices: Simplex[] = [root, second];
 
+	root.sides[2].isMirror = true;
+	root.sides[2].mirrorClut = Clut.makeRandomUnitary();
 	second.sides[0].isMirror = true;
+	second.sides[0].mirrorClut = Clut.makeRandomUnitary();
 
-	// return new Level(simplices, root);
+	return new Level(simplices, root);
 
 	for (let i = 2; i < 5; i++) {
 		// Pick a random simplex to grow from
@@ -215,7 +219,11 @@ export function initLevel(): Level {
 	if (walls.length >= 2) {
 		const shuffled = walls.sort(() => Math.random() - 0.5);
 		shuffled[0]!.simplex.sides[shuffled[0]!.sideIndex]!.isMirror = true;
+		shuffled[0]!.simplex.sides[shuffled[0]!.sideIndex]!.mirrorClut =
+			Clut.makeRandomUnitary();
 		shuffled[1]!.simplex.sides[shuffled[1]!.sideIndex]!.isMirror = true;
+		shuffled[1]!.simplex.sides[shuffled[1]!.sideIndex]!.mirrorClut =
+			Clut.makeRandomUnitary();
 	}
 
 	return new Level(simplices, root);

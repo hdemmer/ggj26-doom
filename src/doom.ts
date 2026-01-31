@@ -23,6 +23,7 @@ export interface SimplexSide {
 	normal: IVec2;
 	simplex: Simplex | null;
 	isMirror: boolean;
+	mirrorClut: Clut | null;
 }
 
 export class Simplex {
@@ -52,6 +53,7 @@ export class Simplex {
 				normal,
 				simplex: null,
 				isMirror: false,
+				mirrorClut: null,
 			});
 		}
 
@@ -135,6 +137,7 @@ export class Level {
 			terminalU: 0,
 			numReflections: 0,
 			wasReflection: false,
+			reflectionClut: null,
 		};
 		for (let i = 0; i < Constants.MAX_STEPS; i++) {
 			result.push({ ...ray.pos });

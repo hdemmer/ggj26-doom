@@ -1,3 +1,4 @@
+import type { Clut } from "@/Clut.ts";
 import type { Simplex } from "@/doom.ts";
 import type { IVec2 } from "@/IVec2.ts";
 
@@ -10,4 +11,5 @@ export interface Ray {
 	terminalU: number;
 	wasReflection: boolean;
 	numReflections: number;
+	reflectionClut: Clut | null;
 }

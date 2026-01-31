@@ -175,12 +175,12 @@ export class ThreeDee {
 		const maskSpriteTex = this.maskSpriteData!;
 		const halfHeight = Constants.LOWRES_HEIGHT / 2;
 
-		// Track which pixels have been drawn (for sprite transparency)
-		const columnDrawn = new Uint8Array(Constants.LOWRES_HEIGHT);
+		// Z-buffer for this column (stores distance at each pixel for depth sorting)
+		const columnDepth = new Float32Array(Constants.LOWRES_HEIGHT);
 
 		for (let x = 0; x < Constants.LOWRES_WIDTH; x++) {
-			// Clear column tracking
-			columnDrawn.fill(0);
+			// Clear column depth buffer (Infinity means nothing drawn yet)
+			columnDepth.fill(Infinity);
 
 			// Map x from [0, WIDTH-1] to [-FOV/2, FOV/2]
 			const angleOffset =
@@ -203,6 +203,7 @@ export class ThreeDee {
 				terminalU: 0,
 				numReflections: 0,
 				wasReflection: false,
+				reflectionClut: null,
 			};
 			let distanceSum = 0;
 			let numReflections = 0;
@@ -256,7 +257,11 @@ export class ThreeDee {
 
 								for (let yIdx = -spriteHeight; yIdx < spriteHeight; yIdx++) {
 									const yScreen = halfHeight - yIdx + Constants.PLAYER_Y_FUDGE;
-									if (yScreen >= 0 && yScreen < Constants.LOWRES_HEIGHT) {
+									if (
+										yScreen >= 0 &&
+										yScreen < Constants.LOWRES_HEIGHT &&
+										spriteCorrectedDist < columnDepth[yScreen]!
+									) {
 										const v =
 											(yIdx + unclampedSpriteHeight) /
 											(2 * unclampedSpriteHeight);
@@ -293,7 +298,7 @@ export class ThreeDee {
 											frameBuffer[idx] = color.r;
 											frameBuffer[idx + 1] = color.g;
 											frameBuffer[idx + 2] = color.b;
-											columnDrawn[yScreen] = 1;
+											columnDepth[yScreen] = spriteCorrectedDist;
 										} else {
 											const playerAlpha = spriteTex.data[texIdx + 3]!;
 											if (playerAlpha >= 10) {
@@ -312,7 +317,7 @@ export class ThreeDee {
 												frameBuffer[idx] = color.r;
 												frameBuffer[idx + 1] = color.g;
 												frameBuffer[idx + 2] = color.b;
-												columnDrawn[yScreen] = 1;
+												columnDepth[yScreen] = spriteCorrectedDist;
 											}
 										}
 										// If alpha < 10, don't mark as drawn - background will show through
@@ -347,12 +352,17 @@ export class ThreeDee {
 					worldX /= 100;
 					worldY /= 100;
 
+					// Compute depth at this floor/ceiling pixel
+					const pixelDist =
+						(distanceSum * lambda + previousDistanceSum * (1 - lambda)) *
+						Math.cos(angleOffset);
+
 					// Ceiling
 					const yCeil = halfHeight - yIdx;
 					if (
 						yCeil >= 0 &&
 						yCeil < Constants.LOWRES_HEIGHT &&
-						!columnDrawn[yCeil]
+						pixelDist < columnDepth[yCeil]!
 					) {
 						const texX =
 							((Math.floor(worldX * ceilingTex.width) % ceilingTex.width) +
@@ -376,6 +386,7 @@ export class ThreeDee {
 						frameBuffer[idx] = color.r;
 						frameBuffer[idx + 1] = color.g;
 						frameBuffer[idx + 2] = color.b;
+						columnDepth[yCeil] = pixelDist;
 					}
 
 					// Floor
@@ -383,7 +394,7 @@ export class ThreeDee {
 					if (
 						yFloor >= 0 &&
 						yFloor < Constants.LOWRES_HEIGHT &&
-						!columnDrawn[yFloor]
+						pixelDist < columnDepth[yFloor]!
 					) {
 						const texX =
 							((Math.floor(worldX * floorTex.width) % floorTex.width) +
@@ -407,6 +418,7 @@ export class ThreeDee {
 						frameBuffer[idx] = color.r;
 						frameBuffer[idx + 1] = color.g;
 						frameBuffer[idx + 2] = color.b;
+						columnDepth[yFloor] = pixelDist;
 					}
 				}
 
@@ -424,7 +436,7 @@ export class ThreeDee {
 						if (
 							yWall >= 0 &&
 							yWall < Constants.LOWRES_HEIGHT &&
-							!columnDrawn[yWall]
+							distance < columnDepth[yWall]!
 						) {
 							// Calculate V coordinate using unclamped height for perspective correction
 							// This ensures correct texture mapping even when close to walls
@@ -452,6 +464,7 @@ export class ThreeDee {
 							frameBuffer[idx] = color.r;
 							frameBuffer[idx + 1] = color.g;
 							frameBuffer[idx + 2] = color.b;
+							columnDepth[yWall] = distance;
 						}
 					}
 
@@ -461,9 +474,9 @@ export class ThreeDee {
 				previousPos.x = ray.pos.x;
 				previousPos.y = ray.pos.y;
 				previousWallHeight = wallHeight;
-				// Apply pre-generated unitary transformation on reflection
-				if (ray.numReflections > numReflections) {
-					clut.multiplyMut(Constants.REFLECTION_CLUTS[ray.numReflections - 1]!);
+				// Apply mirror's clut on reflection
+				if (ray.numReflections > numReflections && ray.reflectionClut) {
+					clut.multiplyMut(ray.reflectionClut);
 				}
 				numReflections = ray.numReflections;
 			}

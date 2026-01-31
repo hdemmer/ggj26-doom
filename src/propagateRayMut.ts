@@ -51,12 +51,13 @@ export function propagateRayMut(ray: Ray): void {
 					dir.x = dir.x - 2 * dot * normal.x;
 					dir.y = dir.y - 2 * dot * normal.y;
 					// move pos a bit away from the wall to avoid precision issues
-					ray.pos.x = intersection.x + normal.x * Constants.EPSILON;
-					ray.pos.y = intersection.y + normal.y * Constants.EPSILON;
+					ray.pos.x = intersection.x;
+					ray.pos.y = intersection.y;
 					ray.sideIndex = i; // now on this side after reflection
 
 					ray.numReflections++;
 					ray.wasReflection = true;
+					ray.reflectionClut = side.mirrorClut;
 
 					return;
 				} else {
