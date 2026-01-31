@@ -12,15 +12,20 @@ export class Player {
 		y: 0,
 	};
 
+	public size: number = 10;
+
 	draw(ctx: Ctx) {
 		ctx.beginPath();
-		ctx.arc(this.pos.x, this.pos.y, 10, 0, 2 * Math.PI);
+		ctx.arc(this.pos.x, this.pos.y, this.size, 0, 2 * Math.PI);
 		ctx.stroke();
 
 		// draw direction
 		ctx.beginPath();
 		ctx.moveTo(this.pos.x, this.pos.y);
-		ctx.lineTo(this.pos.x + this.dir.x * 20, this.pos.y + this.dir.y * 20);
+		ctx.lineTo(
+			this.pos.x + this.dir.x * 2 * this.size,
+			this.pos.y + this.dir.y * 2 * this.size,
+		);
 		ctx.stroke();
 	}
 }

@@ -3,5 +3,5 @@ export const Constants = {
 	HEIGHT: 480,
 	EPSILON: 0.01,
 	MAX_DISTANCE: 10000,
-	MAX_STEPS: 10,
+	MAX_STEPS: 100,
 };

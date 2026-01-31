@@ -1,6 +1,7 @@
 /** biome-ignore-all lint/style/noNonNullAssertion: asdf */
 import { Constants } from "@/Constants.ts";
 import type { IVec2 } from "@/IVec2.ts";
+import { initLevel } from "@/initLevel.ts";
 import { intersectLineLine } from "@/intersectLineLine.ts";
 import { Player } from "@/player.ts";
 import { pointInTriangle } from "@/pointInTriangle.ts";
@@ -85,7 +86,7 @@ export class Simplex {
 }
 
 function propagateRayMut(ray: Ray): void {
-	const { pos, dir, simplex } = ray;
+	const { pos, dir, simplex, sideIndex } = ray;
 	const target = {
 		x: pos.x + Constants.MAX_DISTANCE * dir.x,
 		y: pos.y + Constants.MAX_DISTANCE * dir.y,
@@ -93,6 +94,9 @@ function propagateRayMut(ray: Ray): void {
 	const intersection: IVec2 = { ...Vec2.ZERO };
 	// iterate over sides
 	for (let i = 0; i < simplex.sides.length; i++) {
+		if (i === sideIndex) {
+			continue; // skip the side we entered from
+		}
 		const side = simplex.sides[i]!;
 		if (
 			intersectLineLine(
@@ -114,16 +118,15 @@ function propagateRayMut(ray: Ray): void {
 				ray.pos.x = intersection.x;
 				ray.pos.y = intersection.y;
 				ray.simplex = side.simplex;
-				const hitSideIndex = simplex.findSideIndexForSimplex(side.simplex);
-				if (hitSideIndex !== -1) {
+				// Find the side index in the NEW simplex that connects back to the OLD simplex
+				const newSideIndex = side.simplex.findSideIndexForSimplex(simplex);
+				ray.sideIndex = newSideIndex;
+				if (newSideIndex !== -1) {
 					// move pos a bit into the new simplex to avoid precision issues
-					const hitSide = side.simplex.sides[hitSideIndex]!;
-					const normal = {
-						x: -hitSide.normal.x,
-						y: -hitSide.normal.y,
-					};
-					ray.pos.x -= normal.x * Constants.EPSILON;
-					ray.pos.y -= normal.y * Constants.EPSILON;
+					const hitSide = side.simplex.sides[newSideIndex]!;
+					// The normal points outward from the new simplex, so we subtract it
+					ray.pos.x -= hitSide.normal.x * Constants.EPSILON;
+					ray.pos.y -= hitSide.normal.y * Constants.EPSILON;
 				}
 
 				return;
@@ -136,6 +139,7 @@ function propagateRayMut(ray: Ray): void {
 				// move pos a bit away from the wall to avoid precision issues
 				ray.pos.x = intersection.x + normal.x * Constants.EPSILON;
 				ray.pos.y = intersection.y + normal.y * Constants.EPSILON;
+				ray.sideIndex = i; // now on this side after reflection
 				return;
 			}
 		}
@@ -182,52 +186,13 @@ export class Level {
 			simplex: currentSimplex,
 			pos: { ...origin },
 			dir: { ...direction },
+			sideIndex: -1,
 		};
 		for (let i = 0; i < Constants.MAX_STEPS; i++) {
 			result.push({ ...ray.pos });
 			propagateRayMut(ray);
 		}
 	}
-}
-
-function initLevel(): Level {
-	const root = new Simplex(0, [
-		{ x: 100, y: 100 },
-		{ x: 200, y: 100 },
-		{ x: 100, y: 200 },
-	]);
-
-	const simplices: Simplex[] = [root];
-
-	let currentSimplex = root;
-	for (let i = 0; i < 1; i++) {
-		// grow side B
-		const l = 1.1 - Math.random() * 0.2;
-		const newPoint: IVec2 = {
-			x:
-				currentSimplex.points[1]!.x +
-				currentSimplex.points[2]!.x -
-				l * currentSimplex.points[0]!.x,
-			y:
-				currentSimplex.points[1]!.y +
-				currentSimplex.points[2]!.y -
-				l * currentSimplex.points[0]!.y,
-		};
-
-		const newS = new Simplex(i + 1, [
-			currentSimplex.points[1]!,
-			currentSimplex.points[2]!,
-			newPoint,
-		]);
-		currentSimplex.connectSimplexOnSide(1, newS);
-		newS.connectSimplexOnSide(0, currentSimplex);
-
-		simplices.push(newS);
-
-		currentSimplex = newS;
-	}
-
-	return new Level(simplices, root);
 }
 
 export class Game {

@@ -1,76 +1,47 @@
 import type { IVec2 } from "@/IVec2.ts";
 
-const tmp: IVec2 = {
-	x: 0,
-	y: 0,
-};
-
-export function intersectPointCircle(point: IVec2, circle: IVec2, r: number) {
-	if (r === 0) return false;
-	const dx = circle.x - point.x;
-	const dy = circle.x - point.y;
-	return dx * dx + dy * dy <= r * r;
-}
-
-export function lineCircleCollide(
-	a: IVec2,
-	b: IVec2,
-	circle: IVec2,
+/**
+ * Check if a line segment intersects a circle.
+ * Returns the closest intersection point if found, null otherwise.
+ */
+export function intersectLineCircle(
+	p1: IVec2,
+	p2: IVec2,
+	center: IVec2,
 	radius: number,
-	nearest: IVec2,
-) {
-	//check to see if start or end points lie within circle
-	if (intersectPointCircle(a, circle, radius)) {
-		if (nearest) {
-			nearest.x = a.x;
-			nearest.y = a.y;
-		}
-		return true;
-	}
-	if (intersectPointCircle(b, circle, radius)) {
-		if (nearest) {
-			nearest.x = b.x;
-			nearest.y = b.y;
-		}
-		return true;
+	result: IVec2,
+): boolean {
+	const dx = p2.x - p1.x;
+	const dy = p2.y - p1.y;
+	const fx = p1.x - center.x;
+	const fy = p1.y - center.y;
+
+	const a = dx * dx + dy * dy;
+	const b = 2 * (fx * dx + fy * dy);
+	const c = fx * fx + fy * fy - radius * radius;
+
+	const discriminant = b * b - 4 * a * c;
+	if (discriminant < 0) {
+		return false;
 	}
 
-	const x1 = a.x,
-		y1 = a.y,
-		x2 = b.x,
-		y2 = b.y,
-		cx = circle.x,
-		cy = circle.y;
+	const sqrtDisc = Math.sqrt(discriminant);
+	const t1 = (-b - sqrtDisc) / (2 * a);
+	const t2 = (-b + sqrtDisc) / (2 * a);
 
-	//vector d
-	const dx = x2 - x1;
-	const dy = y2 - y1;
-
-	//vector lc
-	const lcx = cx - x1;
-	const lcy = cy - y1;
-
-	//project lc onto d, resulting in vector p
-	const dLen2 = dx * dx + dy * dy; //len2 of d
-	let px = dx;
-	let py = dy;
-	if (dLen2 > 0) {
-		const dp = (lcx * dx + lcy * dy) / dLen2;
-		px *= dp;
-		py *= dp;
+	// Use the smallest positive t in [0, 1]
+	let t = -1;
+	if (t1 >= 0 && t1 <= 1) {
+		t = t1;
+	} else if (t2 >= 0 && t2 <= 1) {
+		t = t2;
 	}
 
-	if (!nearest) nearest = tmp;
-	nearest.x = x1 + px;
-	nearest.y = y1 + py;
+	if (t < 0) {
+		return false;
+	}
 
-	//len2 of p
-	const pLen2 = px * px + py * py;
-
-	//check collision
-	return (
-		intersectPointCircle(nearest, circle, radius) &&
-		pLen2 <= dLen2 &&
-		px * dx + py * dy >= 0
-	);
+	result.x = p1.x + t * dx;
+	result.y = p1.y + t * dy;
+	return true;
 }

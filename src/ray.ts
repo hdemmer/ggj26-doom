@@ -5,5 +5,5 @@ export interface Ray {
 	simplex: Simplex;
 	pos: IVec2;
 	dir: IVec2;
-	// TODO: store which simplex side this is on to avoid precision errors ...
+	sideIndex: number; // -1 if not on a side, otherwise the index of the side we entered from
 }
