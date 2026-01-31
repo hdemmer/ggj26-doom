@@ -152,11 +152,12 @@ export class Game {
 		this.time += deltaTime;
 
 		// Handle input
+		const turnDir = this.isInMirror ? -1 : 1;
 		if (this.keys.has("a") || this.keys.has("ArrowLeft")) {
-			player.angle -= Constants.TURN_ANGLE_STEP;
+			player.angle -= Constants.TURN_ANGLE_STEP * turnDir;
 		}
 		if (this.keys.has("d") || this.keys.has("ArrowRight")) {
-			player.angle += Constants.TURN_ANGLE_STEP;
+			player.angle += Constants.TURN_ANGLE_STEP * turnDir;
 		}
 
 		const moveSpeed = 2;
@@ -165,14 +166,20 @@ export class Game {
 				x: Math.cos(player.angle) * moveSpeed,
 				y: Math.sin(player.angle) * moveSpeed,
 			};
-			player.moveTo(delta, level);
+			const mirrorPassages = player.moveTo(delta, level);
+			if (mirrorPassages % 2 === 1) {
+				this.isInMirror = !this.isInMirror;
+			}
 		}
 		if (this.keys.has("s") || this.keys.has("ArrowDown")) {
 			const delta = {
 				x: -Math.cos(player.angle) * moveSpeed,
 				y: -Math.sin(player.angle) * moveSpeed,
 			};
-			player.moveTo(delta, level);
+			const mirrorPassages = player.moveTo(delta, level);
+			if (mirrorPassages % 2 === 1) {
+				this.isInMirror = !this.isInMirror;
+			}
 		}
 
 		this.playerSprite.pos.x = player.pos.x;

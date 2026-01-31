@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Level Editor</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        body {
+            font-family: system-ui, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+        #canvas-container {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        canvas {
+            background: #16213e;
+            border: 2px solid #0f3460;
+            cursor: crosshair;
+        }
+        #sidebar {
+            width: 350px;
+            background: #0f3460;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        h2 {
+            color: #e94560;
+            font-size: 18px;
+        }
+        .tool-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        button {
+            background: #e94560;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        button:hover {
+            background: #ff6b6b;
+        }
+        button.active {
+            background: #53bf9d;
+        }
+        button.secondary {
+            background: #533483;
+        }
+        button.secondary:hover {
+            background: #7952b3;
+        }
+        textarea {
+            flex: 1;
+            background: #1a1a2e;
+            color: #0f0;
+            border: 1px solid #533483;
+            padding: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            resize: none;
+            border-radius: 4px;
+        }
+        .help {
+            font-size: 12px;
+            color: #aaa;
+            line-height: 1.5;
+        }
+        .legend {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+            font-size: 13px;
+        }
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .legend-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body>
+    <div id="canvas-container">
+        <canvas id="canvas" width="800" height="600"></canvas>
+    </div>
+    <div id="sidebar">
+        <h2>Level Editor</h2>
+
+        <div class="legend">
+            <div class="legend-item">
+                <div class="legend-color" style="background: #e94560;"></div>
+                <span>Polyline points</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #ff6b6b;"></div>
+                <span>Hearts</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #53bf9d;"></div>
+                <span>Player start</span>
+            </div>
+        </div>
+
+        <div class="tool-group">
+            <button id="btn-polyline" class="active">Add Polyline Point</button>
+            <button id="btn-heart">Add Heart</button>
+            <button id="btn-player">Set Player Start</button>
+        </div>
+
+        <div class="tool-group">
+            <button id="btn-delete" class="secondary">Delete Selected</button>
+            <button id="btn-clear" class="secondary">Clear All</button>
+        </div>
+
+        <div class="help">
+            <strong>Controls:</strong><br>
+            - Click to add points (based on selected tool)<br>
+            - Drag points to move them<br>
+            - Right-click point to delete<br>
+            - Shift+click on polyline edge to insert point
+        </div>
+
+        <h2>Level JSON</h2>
+        <textarea id="output" readonly></textarea>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const output = document.getElementById('output');
+
+        const POINT_RADIUS = 8;
+        const GRID_SIZE = 20;
+
+        let level = {
+            polyline: [
+                { x: 200, y: 150 },
+                { x: 600, y: 150 },
+                { x: 600, y: 450 },
+                { x: 200, y: 450 }
+            ],
+            heartPositions: [],
+            playerStartPos: { x: 400, y: 300 }
+        };
+
+        let currentTool = 'polyline';
+        let dragging = null;
+        let selected = null;
+
+        // Tool buttons
+        const btnPolyline = document.getElementById('btn-polyline');
+        const btnHeart = document.getElementById('btn-heart');
+        const btnPlayer = document.getElementById('btn-player');
+        const btnDelete = document.getElementById('btn-delete');
+        const btnClear = document.getElementById('btn-clear');
+
+        function setTool(tool) {
+            currentTool = tool;
+            btnPolyline.classList.toggle('active', tool === 'polyline');
+            btnHeart.classList.toggle('active', tool === 'heart');
+            btnPlayer.classList.toggle('active', tool === 'player');
+        }
+
+        btnPolyline.onclick = () => setTool('polyline');
+        btnHeart.onclick = () => setTool('heart');
+        btnPlayer.onclick = () => setTool('player');
+
+        btnDelete.onclick = () => {
+            if (selected) {
+                if (selected.type === 'polyline' && level.polyline.length > 3) {
+                    level.polyline.splice(selected.index, 1);
+                } else if (selected.type === 'heart') {
+                    level.heartPositions.splice(selected.index, 1);
+                }
+                selected = null;
+                render();
+                updateOutput();
+            }
+        };
+
+        btnClear.onclick = () => {
+            if (confirm('Clear all points?')) {
+                level = {
+                    polyline: [
+                        { x: 200, y: 150 },
+                        { x: 600, y: 150 },
+                        { x: 600, y: 450 },
+                        { x: 200, y: 450 }
+                    ],
+                    heartPositions: [],
+                    playerStartPos: { x: 400, y: 300 }
+                };
+                selected = null;
+                render();
+                updateOutput();
+            }
+        };
+
+        function snapToGrid(val) {
+            return Math.round(val / GRID_SIZE) * GRID_SIZE;
+        }
+
+        function getMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top
+            };
+        }
+
+        function dist(p1, p2) {
+            return Math.sqrt((p1.x - p2.x) ** 2 + (p1.y - p2.y) ** 2);
+        }
+
+        function findPointAt(pos) {
+            // Check player
+            if (dist(pos, level.playerStartPos) < POINT_RADIUS) {
+                return { type: 'player', index: 0 };
+            }
+            // Check hearts
+            for (let i = 0; i < level.heartPositions.length; i++) {
+                if (dist(pos, level.heartPositions[i]) < POINT_RADIUS) {
+                    return { type: 'heart', index: i };
+                }
+            }
+            // Check polyline
+            for (let i = 0; i < level.polyline.length; i++) {
+                if (dist(pos, level.polyline[i]) < POINT_RADIUS) {
+                    return { type: 'polyline', index: i };
+                }
+            }
+            return null;
+        }
+
+        function pointToLineDistance(p, a, b) {
+            const ab = { x: b.x - a.x, y: b.y - a.y };
+            const ap = { x: p.x - a.x, y: p.y - a.y };
+            const abLen = Math.sqrt(ab.x * ab.x + ab.y * ab.y);
+            if (abLen === 0) return dist(p, a);
+
+            const t = Math.max(0, Math.min(1, (ap.x * ab.x + ap.y * ab.y) / (abLen * abLen)));
+            const closest = { x: a.x + t * ab.x, y: a.y + t * ab.y };
+            return { dist: dist(p, closest), t };
+        }
+
+        function findEdgeAt(pos) {
+            const poly = level.polyline;
+            for (let i = 0; i < poly.length; i++) {
+                const a = poly[i];
+                const b = poly[(i + 1) % poly.length];
+                const result = pointToLineDistance(pos, a, b);
+                if (result.dist < 10 && result.t > 0.1 && result.t < 0.9) {
+                    return { index: i, t: result.t };
+                }
+            }
+            return null;
+        }
+
+        canvas.onmousedown = (e) => {
+            const pos = getMousePos(e);
+            const point = findPointAt(pos);
+
+            if (e.button === 2) {
+                // Right click - delete
+                if (point) {
+                    if (point.type === 'polyline' && level.polyline.length > 3) {
+                        level.polyline.splice(point.index, 1);
+                    } else if (point.type === 'heart') {
+                        level.heartPositions.splice(point.index, 1);
+                    }
+                    render();
+                    updateOutput();
+                }
+                return;
+            }
+
+            if (point) {
+                dragging = point;
+                selected = point;
+                render();
+                return;
+            }
+
+            // Shift+click to insert on edge
+            if (e.shiftKey) {
+                const edge = findEdgeAt(pos);
+                if (edge) {
+                    const snapped = { x: snapToGrid(pos.x), y: snapToGrid(pos.y) };
+                    level.polyline.splice(edge.index + 1, 0, snapped);
+                    render();
+                    updateOutput();
+                    return;
+                }
+            }
+
+            // Add new point based on tool
+            const snapped = { x: snapToGrid(pos.x), y: snapToGrid(pos.y) };
+
+            if (currentTool === 'polyline') {
+                level.polyline.push(snapped);
+            } else if (currentTool === 'heart') {
+                level.heartPositions.push(snapped);
+            } else if (currentTool === 'player') {
+                level.playerStartPos = snapped;
+            }
+
+            render();
+            updateOutput();
+        };
+
+        canvas.onmousemove = (e) => {
+            if (!dragging) return;
+
+            const pos = getMousePos(e);
+            const snapped = { x: snapToGrid(pos.x), y: snapToGrid(pos.y) };
+
+            if (dragging.type === 'polyline') {
+                level.polyline[dragging.index] = snapped;
+            } else if (dragging.type === 'heart') {
+                level.heartPositions[dragging.index] = snapped;
+            } else if (dragging.type === 'player') {
+                level.playerStartPos = snapped;
+            }
+
+            render();
+            updateOutput();
+        };
+
+        canvas.onmouseup = () => {
+            dragging = null;
+        };
+
+        canvas.oncontextmenu = (e) => e.preventDefault();
+
+        function render() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw grid
+            ctx.strokeStyle = '#1a3a5c';
+            ctx.lineWidth = 1;
+            for (let x = 0; x <= canvas.width; x += GRID_SIZE) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, canvas.height);
+                ctx.stroke();
+            }
+            for (let y = 0; y <= canvas.height; y += GRID_SIZE) {
+                ctx.beginPath();
+                ctx.moveTo(0, y);
+                ctx.lineTo(canvas.width, y);
+                ctx.stroke();
+            }
+
+            // Draw polyline
+            if (level.polyline.length > 0) {
+                ctx.strokeStyle = '#e94560';
+                ctx.lineWidth = 2;
+                ctx.beginPath();
+                ctx.moveTo(level.polyline[0].x, level.polyline[0].y);
+                for (let i = 1; i < level.polyline.length; i++) {
+                    ctx.lineTo(level.polyline[i].x, level.polyline[i].y);
+                }
+                ctx.closePath();
+                ctx.stroke();
+
+                // Fill with transparency
+                ctx.fillStyle = 'rgba(233, 69, 96, 0.1)';
+                ctx.fill();
+
+                // Draw polyline points
+                level.polyline.forEach((p, i) => {
+                    const isSelected = selected && selected.type === 'polyline' && selected.index === i;
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, POINT_RADIUS, 0, Math.PI * 2);
+                    ctx.fillStyle = isSelected ? '#fff' : '#e94560';
+                    ctx.fill();
+                    ctx.strokeStyle = '#fff';
+                    ctx.lineWidth = 2;
+                    ctx.stroke();
+
+                    // Draw index
+                    ctx.fillStyle = isSelected ? '#e94560' : '#fff';
+                    ctx.font = '10px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(i.toString(), p.x, p.y);
+                });
+            }
+
+            // Draw hearts
+            level.heartPositions.forEach((p, i) => {
+                const isSelected = selected && selected.type === 'heart' && selected.index === i;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, POINT_RADIUS, 0, Math.PI * 2);
+                ctx.fillStyle = isSelected ? '#fff' : '#ff6b6b';
+                ctx.fill();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                // Heart symbol
+                ctx.fillStyle = isSelected ? '#ff6b6b' : '#fff';
+                ctx.font = '10px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('\u2665', p.x, p.y);
+            });
+
+            // Draw player
+            const isPlayerSelected = selected && selected.type === 'player';
+            ctx.beginPath();
+            ctx.arc(level.playerStartPos.x, level.playerStartPos.y, POINT_RADIUS + 2, 0, Math.PI * 2);
+            ctx.fillStyle = isPlayerSelected ? '#fff' : '#53bf9d';
+            ctx.fill();
+            ctx.strokeStyle = '#fff';
+            ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Player symbol
+            ctx.fillStyle = isPlayerSelected ? '#53bf9d' : '#fff';
+            ctx.font = 'bold 12px sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('P', level.playerStartPos.x, level.playerStartPos.y);
+        }
+
+        function updateOutput() {
+            const exportLevel = {
+                polyline: level.polyline.map(p => ({ x: p.x, y: p.y })),
+                heartPositions: level.heartPositions.map(p => ({ x: p.x, y: p.y })),
+                playerStartPos: { x: level.playerStartPos.x, y: level.playerStartPos.y }
+            };
+            output.value = JSON.stringify(exportLevel, null, 2);
+        }
+
+        // Initial render
+        render();
+        updateOutput();
+    </script>
+</body>
+</html>

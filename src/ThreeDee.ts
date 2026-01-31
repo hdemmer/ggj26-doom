@@ -166,8 +166,10 @@ export class ThreeDee {
 			columnDepth.fill(Infinity);
 
 			// Map x from [0, WIDTH-1] to [-FOV/2, FOV/2]
+			// Flip the angle sweep when in mirror mode
+			const mirrorSign = game.isInMirror ? -1 : 1;
 			const angleOffset =
-				(x / (Constants.LOWRES_WIDTH - 1) - 0.5) * Constants.FOV;
+				(x / (Constants.LOWRES_WIDTH - 1) - 0.5) * Constants.FOV * mirrorSign;
 
 			// Calculate ray direction from player angle + offset
 			const rayAngle = player.angle + angleOffset;

@@ -1,8 +1,10 @@
+/** biome-ignore-all lint/style/noNonNullAssertion: <explanation> */
 import { Constants } from "@/Constants.ts";
 import type { Ctx } from "@/doom.ts";
-import { intersectLineLine } from "@/intersectLineLine.ts";
 import type { IVec2 } from "@/IVec2.ts";
+import { intersectLineLine } from "@/intersectLineLine.ts";
 import type { Level } from "@/level.ts";
+import type { SimplexSide } from "@/simplexSide.ts";
 
 export class Player {
 	public pos: IVec2;
@@ -21,17 +23,20 @@ export class Player {
 	 * Move the player by delta, tracing through simplices like a ray.
 	 * Handles passing through portals, bouncing off mirrors, and stopping at walls.
 	 * The player position will never be outside the level.
+	 * @returns The number of mirror passages during this move.
 	 */
-	moveTo(delta: IVec2, level: Level): void {
+	moveTo(delta: IVec2, level: Level): number {
 		let simplex = level.findSimplex(this.pos);
 		if (!simplex) {
-			return;
+			return 0;
 		}
 
 		const deltaLength = Math.hypot(delta.x, delta.y);
 		if (deltaLength === 0) {
-			return;
+			return 0;
 		}
+
+		let mirrorPassages = 0;
 
 		let currentX = this.pos.x;
 		let currentY = this.pos.y;
@@ -51,10 +56,10 @@ export class Player {
 			let hitSideIndex = -1;
 
 			// Find closest intersection with simplex sides
-			for (let i = 0; i < simplex.sides.length; i++) {
+			for (let i = 0; i < simplex!.sides.length; i++) {
 				if (i === sideIndex) continue;
 
-				const side = simplex.sides[i]!;
+				const side = simplex!.sides[i]!;
 				if (
 					intersectLineLine(
 						currentX,
@@ -80,7 +85,7 @@ export class Player {
 			}
 
 			if (hitSideIndex >= 0) {
-				const side = simplex.sides[hitSideIndex]!;
+				const side: SimplexSide = simplex!.sides[hitSideIndex]!;
 
 				if (side.simplex) {
 					// Pass through to neighbor simplex
@@ -89,6 +94,9 @@ export class Player {
 					remainingDist -= hitDist;
 					sideIndex = side.simplex.findSideIndexForSimplex(simplex);
 					simplex = side.simplex;
+					if (side.isMirror) {
+						mirrorPassages++;
+					}
 				} else if (side.isMirror) {
 					// Reflect off mirror
 					currentX += dirX * hitDist;
@@ -103,6 +111,7 @@ export class Player {
 					// Reflect player angle
 					this.reflectAngle(side.normal);
 
+					mirrorPassages++;
 					sideIndex = hitSideIndex;
 				} else {
 					// Hit wall - stop at wall minus player size
@@ -125,6 +134,8 @@ export class Player {
 		this.distanceTravelled += Math.hypot(dx, dy);
 		this.pos.x = currentX;
 		this.pos.y = currentY;
+
+		return mirrorPassages;
 	}
 
 	private reflectAngle(normal: IVec2): void {
