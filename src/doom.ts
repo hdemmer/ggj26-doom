@@ -291,6 +291,8 @@ export class Game {
 			}
 		}
 		ctx.stroke();
+
+		this.debugDrawTextures(ctx);
 	}
 
 	private debugDrawTextures(ctx: Ctx) {
@@ -307,6 +309,20 @@ export class Game {
 		ctx.drawImage(
 			this.wallImage,
 			padding + (thumbSize + padding) * 2,
+			padding,
+			thumbSize,
+			thumbSize,
+		);
+		ctx.drawImage(
+			this.playerSpriteImage,
+			padding + (thumbSize + padding) * 3,
+			padding,
+			thumbSize,
+			thumbSize,
+		);
+		ctx.drawImage(
+			this.helmetSpriteImage,
+			padding + (thumbSize + padding) * 4,
 			padding,
 			thumbSize,
 			thumbSize,

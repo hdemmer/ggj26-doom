@@ -29,6 +29,7 @@ interface RayCircleHit {
 
 export class ThreeDee {
 	private readonly frameBuffer: Uint8Array;
+	private readonly frameBuffer32: Uint32Array;
 	private readonly imageData: ImageData;
 	private readonly rayPoints: IVec2[] = [];
 	private readonly offscreenCanvas: OffscreenCanvas;
@@ -45,9 +46,10 @@ export class ThreeDee {
 	public whiteMaskPixelCount: number = 0;
 
 	constructor(public readonly game: Game) {
-		this.frameBuffer = new Uint8Array(
-			Constants.LOWRES_WIDTH * Constants.LOWRES_HEIGHT * 3,
-		);
+		const pixelCount = Constants.LOWRES_WIDTH * Constants.LOWRES_HEIGHT;
+		const buffer = new ArrayBuffer(pixelCount * 4);
+		this.frameBuffer = new Uint8Array(buffer);
+		this.frameBuffer32 = new Uint32Array(buffer);
 		this.imageData = new ImageData(
 			Constants.LOWRES_WIDTH,
 			Constants.LOWRES_HEIGHT,
@@ -173,8 +175,8 @@ export class ThreeDee {
 		// Count fully white helmet sprite pixels rendered this frame
 		let whiteHelmetPixelCount = 0;
 
-		// Clear frame buffer
-		frameBuffer.fill(0);
+		// Clear frame buffer (0xFF000000 = opaque black in little-endian ABGR)
+		this.frameBuffer32.fill(0xff000000);
 
 		const playerSimplex = this.game.level.findSimplex(player.pos);
 		if (!playerSimplex) {
@@ -186,9 +188,19 @@ export class ThreeDee {
 		const floorTex = this.floorTextureData!;
 		const ceilingTex = this.ceilingTextureData!;
 		const wallTex = this.wallTextureData!;
-		const spriteTex = this.playerSpriteData!;
+		const playerSpriteTex = this.playerSpriteData!;
 		const helmetSpriteTex = this.helmetSpriteData!;
 		const halfHeight = Constants.LOWRES_HEIGHT / 2;
+
+		// Pre-compute texture dimensions and masks (assumes power-of-2 textures)
+		const floorTexW = floorTex.width;
+		const floorTexH = floorTex.height;
+		const floorTexWMask = floorTexW - 1;
+		const floorTexHMask = floorTexH - 1;
+		const ceilTexW = ceilingTex.width;
+		const ceilTexH = ceilingTex.height;
+		const ceilTexWMask = ceilTexW - 1;
+		const ceilTexHMask = ceilTexH - 1;
 
 		// Z-buffer for this column (stores distance at each pixel for depth sorting)
 		const columnDepth = new Float32Array(Constants.LOWRES_HEIGHT);
@@ -268,20 +280,22 @@ export class ThreeDee {
 
 							// Flip player texture horizontally for walk animation (mask stays unflipped)
 							const playerU = isSpriteFlipped(sprite) ? 1 - hit.u : hit.u;
-							const playerTexX = Math.floor(playerU * (spriteTex.width - 1));
+							const playerTexX = Math.floor(
+								playerU * (playerSpriteTex.width - 1),
+							);
 							const maskTexX = Math.floor(hit.u * (helmetSpriteTex.width - 1));
 							const unclampedSpriteHeight =
 								(Constants.LOWRES_HEIGHT * 2 * sprite.size) /
 								spriteCorrectedDist;
 
-							// Check if sprite is facing the camera
+							// Check if sprite is facing the camera (use segmentDir, not ray.dir which may be reflected)
 							const spriteFacingDir: IVec2 = {
 								x: Math.cos(sprite.angle),
 								y: Math.sin(sprite.angle),
 							};
 							const facingCamera = Player.isFacingTowards(
 								spriteFacingDir,
-								ray.dir,
+								segmentDir,
 							);
 
 							for (let yIdx = -spriteHeight; yIdx < spriteHeight; yIdx++) {
@@ -295,20 +309,21 @@ export class ThreeDee {
 										(yIdx + unclampedSpriteHeight) /
 										(2 * unclampedSpriteHeight);
 									const texY =
-										spriteTex.height -
+										playerSpriteTex.height -
+										1 -
 										Math.max(
 											0,
 											Math.min(
-												spriteTex.height - 1,
-												Math.floor(v * (spriteTex.height - 1)),
+												playerSpriteTex.height - 1,
+												Math.floor(v * (playerSpriteTex.height - 1)),
 											),
 										);
 									const playerTexIdx =
-										(texY * spriteTex.width + playerTexX) * 4;
+										(texY * playerSpriteTex.width + playerTexX) * 4;
 									const maskTexIdx =
 										(texY * helmetSpriteTex.width + maskTexX) * 4;
 
-									const playerAlpha = spriteTex.data[playerTexIdx + 3]!;
+									const playerAlpha = playerSpriteTex.data[playerTexIdx + 3]!;
 
 									const maskAlpha = helmetSpriteTex.data[maskTexIdx + 3]!;
 									// facingCamera = true means sprite facing towards ray.dir → helmet on top
@@ -319,13 +334,19 @@ export class ThreeDee {
 										// Draw player first (bottom layer)
 										if (playerAlpha >= 10) {
 											const color: Rgb8Color = {
-												r: spriteTex.data[playerTexIdx]! * spriteBrightnessFactor,
-												g: spriteTex.data[playerTexIdx + 1]! * spriteBrightnessFactor,
-												b: spriteTex.data[playerTexIdx + 2]! * spriteBrightnessFactor,
+												r:
+													playerSpriteTex.data[playerTexIdx]! *
+													spriteBrightnessFactor,
+												g:
+													playerSpriteTex.data[playerTexIdx + 1]! *
+													spriteBrightnessFactor,
+												b:
+													playerSpriteTex.data[playerTexIdx + 2]! *
+													spriteBrightnessFactor,
 											};
 											clut.applyMut(color);
 
-											const idx = (yScreen * Constants.LOWRES_WIDTH + x) * 3;
+											const idx = (yScreen * Constants.LOWRES_WIDTH + x) * 4;
 											frameBuffer[idx] = color.r;
 											frameBuffer[idx + 1] = color.g;
 											frameBuffer[idx + 2] = color.b;
@@ -348,7 +369,7 @@ export class ThreeDee {
 											};
 											clut.applyMut(color);
 
-											const idx = (yScreen * Constants.LOWRES_WIDTH + x) * 3;
+											const idx = (yScreen * Constants.LOWRES_WIDTH + x) * 4;
 											frameBuffer[idx] = color.r;
 											frameBuffer[idx + 1] = color.g;
 											frameBuffer[idx + 2] = color.b;
@@ -372,7 +393,7 @@ export class ThreeDee {
 											};
 											clut.applyMut(color);
 
-											const idx = (yScreen * Constants.LOWRES_WIDTH + x) * 3;
+											const idx = (yScreen * Constants.LOWRES_WIDTH + x) * 4;
 											frameBuffer[idx] = color.r;
 											frameBuffer[idx + 1] = color.g;
 											frameBuffer[idx + 2] = color.b;
@@ -381,13 +402,19 @@ export class ThreeDee {
 										// Draw player on top
 										if (playerAlpha >= 10) {
 											const color: Rgb8Color = {
-												r: spriteTex.data[playerTexIdx]! * spriteBrightnessFactor,
-												g: spriteTex.data[playerTexIdx + 1]! * spriteBrightnessFactor,
-												b: spriteTex.data[playerTexIdx + 2]! * spriteBrightnessFactor,
+												r:
+													playerSpriteTex.data[playerTexIdx]! *
+													spriteBrightnessFactor,
+												g:
+													playerSpriteTex.data[playerTexIdx + 1]! *
+													spriteBrightnessFactor,
+												b:
+													playerSpriteTex.data[playerTexIdx + 2]! *
+													spriteBrightnessFactor,
 											};
 											clut.applyMut(color);
 
-											const idx = (yScreen * Constants.LOWRES_WIDTH + x) * 3;
+											const idx = (yScreen * Constants.LOWRES_WIDTH + x) * 4;
 											frameBuffer[idx] = color.r;
 											frameBuffer[idx + 1] = color.g;
 											frameBuffer[idx + 2] = color.b;
@@ -444,16 +471,10 @@ export class ThreeDee {
 						yCeil < Constants.LOWRES_HEIGHT &&
 						pixelDist < columnDepth[yCeil]!
 					) {
-						const texX =
-							((Math.floor(worldX * ceilingTex.width) % ceilingTex.width) +
-								ceilingTex.width) %
-							ceilingTex.width;
-						const texY =
-							((Math.floor(worldY * ceilingTex.height) % ceilingTex.height) +
-								ceilingTex.height) %
-							ceilingTex.height;
+						const texX = (worldX * ceilTexW) & ceilTexWMask;
+						const texY = (worldY * ceilTexH) & ceilTexHMask;
 
-						const texIdx = (texY * ceilingTex.width + texX) * 4;
+						const texIdx = (texY * ceilTexW + texX) * 4;
 
 						const color: Rgb8Color = {
 							r: ceilingTex.data[texIdx]! * pixelBrightnessFactor,
@@ -462,7 +483,7 @@ export class ThreeDee {
 						};
 						clut.applyMut(color);
 
-						const idx = (yCeil * Constants.LOWRES_WIDTH + x) * 3;
+						const idx = (yCeil * Constants.LOWRES_WIDTH + x) * 4;
 						frameBuffer[idx] = color.r;
 						frameBuffer[idx + 1] = color.g;
 						frameBuffer[idx + 2] = color.b;
@@ -476,16 +497,10 @@ export class ThreeDee {
 						yFloor < Constants.LOWRES_HEIGHT &&
 						pixelDist < columnDepth[yFloor]!
 					) {
-						const texX =
-							((Math.floor(worldX * floorTex.width) % floorTex.width) +
-								floorTex.width) %
-							floorTex.width;
-						const texY =
-							((Math.floor(worldY * floorTex.height) % floorTex.height) +
-								floorTex.height) %
-							floorTex.height;
+						const texX = (worldX * floorTexW) & floorTexWMask;
+						const texY = (worldY * floorTexH) & floorTexHMask;
 
-						const texIdx = (texY * floorTex.width + texX) * 4;
+						const texIdx = (texY * floorTexW + texX) * 4;
 
 						const color: Rgb8Color = {
 							r: floorTex.data[texIdx]! * pixelBrightnessFactor,
@@ -494,7 +509,7 @@ export class ThreeDee {
 						};
 
 						clut.applyMut(color);
-						const idx = (yFloor * Constants.LOWRES_WIDTH + x) * 3;
+						const idx = (yFloor * Constants.LOWRES_WIDTH + x) * 4;
 						frameBuffer[idx] = color.r;
 						frameBuffer[idx + 1] = color.g;
 						frameBuffer[idx + 2] = color.b;
@@ -540,7 +555,7 @@ export class ThreeDee {
 							};
 							clut.applyMut(color);
 
-							const idx = (yWall * Constants.LOWRES_WIDTH + x) * 3;
+							const idx = (yWall * Constants.LOWRES_WIDTH + x) * 4;
 							frameBuffer[idx] = color.r;
 							frameBuffer[idx + 1] = color.g;
 							frameBuffer[idx + 2] = color.b;
@@ -611,16 +626,8 @@ export class ThreeDee {
 
 	draw(ctx: Ctx) {
 		const { frameBuffer, imageData, offscreenCanvas, offscreenCtx } = this;
-		const rgba = imageData.data;
 
-		for (let i = 0; i < Constants.LOWRES_WIDTH * Constants.LOWRES_HEIGHT; i++) {
-			const srcIdx = i * 3;
-			const dstIdx = i * 4;
-			rgba[dstIdx] = frameBuffer[srcIdx]!;
-			rgba[dstIdx + 1] = frameBuffer[srcIdx + 1]!;
-			rgba[dstIdx + 2] = frameBuffer[srcIdx + 2]!;
-			rgba[dstIdx + 3] = 255;
-		}
+		imageData.data.set(frameBuffer);
 
 		offscreenCtx.putImageData(imageData, 0, 0);
 		ctx.imageSmoothingEnabled = false;
