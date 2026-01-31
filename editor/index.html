@@ -122,6 +122,14 @@
                 <div class="legend-color" style="background: #53bf9d;"></div>
                 <span>Player start</span>
             </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #00d4ff;"></div>
+                <span>Mirror edge</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color" style="background: #f5a623;"></div>
+                <span>Door edge</span>
+            </div>
         </div>
 
         <div class="tool-group">
@@ -131,8 +139,19 @@
         </div>
 
         <div class="tool-group">
+            <button id="btn-mirror">Toggle Mirror Edge</button>
+            <button id="btn-door">Toggle Door Edge</button>
+        </div>
+
+        <div class="tool-group">
             <button id="btn-delete" class="secondary">Delete Selected</button>
             <button id="btn-clear" class="secondary">Clear All</button>
+        </div>
+
+        <div class="tool-group" style="align-items: center;">
+            <label for="angle-input" style="font-size: 14px;">Player Angle:</label>
+            <input type="number" id="angle-input" value="0" step="0.1" style="width: 80px; padding: 6px; border-radius: 4px; border: 1px solid #533483; background: #1a1a2e; color: #fff;">
+            <span style="font-size: 12px; color: #aaa;">rad</span>
         </div>
 
         <div class="help">
@@ -140,7 +159,9 @@
             - Click to add points (based on selected tool)<br>
             - Drag points to move them<br>
             - Right-click point to delete<br>
-            - Shift+click on polyline edge to insert point
+            - Click on edge to select it<br>
+            - Use Mirror/Door buttons to toggle selected edge<br>
+            - Shift+click on edge to insert point
         </div>
 
         <h2>Level JSON</h2>
@@ -163,12 +184,16 @@
                 { x: 200, y: 450 }
             ],
             heartPositions: [],
-            playerStartPos: { x: 400, y: 300 }
+            playerStartPos: { x: 400, y: 300 },
+            playerStartAngle: 0,
+            mirrorIndices: [],
+            doorIndices: []
         };
 
         let currentTool = 'polyline';
         let dragging = null;
         let selected = null;
+        let selectedEdge = null;
 
         // Tool buttons
         const btnPolyline = document.getElementById('btn-polyline');
@@ -188,6 +213,41 @@
         btnHeart.onclick = () => setTool('heart');
         btnPlayer.onclick = () => setTool('player');
 
+        const btnMirror = document.getElementById('btn-mirror');
+        const btnDoor = document.getElementById('btn-door');
+
+        btnMirror.onclick = () => {
+            if (selectedEdge !== null) {
+                const idx = level.mirrorIndices.indexOf(selectedEdge);
+                if (idx >= 0) {
+                    level.mirrorIndices.splice(idx, 1);
+                } else {
+                    level.mirrorIndices.push(selectedEdge);
+                    // Remove from doors if it was a door
+                    const doorIdx = level.doorIndices.indexOf(selectedEdge);
+                    if (doorIdx >= 0) level.doorIndices.splice(doorIdx, 1);
+                }
+                render();
+                updateOutput();
+            }
+        };
+
+        btnDoor.onclick = () => {
+            if (selectedEdge !== null) {
+                const idx = level.doorIndices.indexOf(selectedEdge);
+                if (idx >= 0) {
+                    level.doorIndices.splice(idx, 1);
+                } else {
+                    level.doorIndices.push(selectedEdge);
+                    // Remove from mirrors if it was a mirror
+                    const mirrorIdx = level.mirrorIndices.indexOf(selectedEdge);
+                    if (mirrorIdx >= 0) level.mirrorIndices.splice(mirrorIdx, 1);
+                }
+                render();
+                updateOutput();
+            }
+        };
+
         btnDelete.onclick = () => {
             if (selected) {
                 if (selected.type === 'polyline' && level.polyline.length > 3) {
@@ -201,6 +261,13 @@
             }
         };
 
+        const angleInput = document.getElementById('angle-input');
+        angleInput.oninput = () => {
+            level.playerStartAngle = parseFloat(angleInput.value) || 0;
+            render();
+            updateOutput();
+        };
+
         btnClear.onclick = () => {
             if (confirm('Clear all points?')) {
                 level = {
@@ -211,9 +278,14 @@
                         { x: 200, y: 450 }
                     ],
                     heartPositions: [],
-                    playerStartPos: { x: 400, y: 300 }
+                    playerStartPos: { x: 400, y: 300 },
+                    playerStartAngle: 0,
+                    mirrorIndices: [],
+                    doorIndices: []
                 };
                 selected = null;
+                selectedEdge = null;
+                angleInput.value = '0';
                 render();
                 updateOutput();
             }
@@ -287,7 +359,16 @@
                 // Right click - delete
                 if (point) {
                     if (point.type === 'polyline' && level.polyline.length > 3) {
-                        level.polyline.splice(point.index, 1);
+                        // Adjust mirror/door indices when deleting a polyline point
+                        const delIdx = point.index;
+                        level.mirrorIndices = level.mirrorIndices
+                            .filter(i => i !== delIdx && i !== (delIdx - 1 + level.polyline.length) % level.polyline.length)
+                            .map(i => i > delIdx ? i - 1 : i);
+                        level.doorIndices = level.doorIndices
+                            .filter(i => i !== delIdx && i !== (delIdx - 1 + level.polyline.length) % level.polyline.length)
+                            .map(i => i > delIdx ? i - 1 : i);
+                        level.polyline.splice(delIdx, 1);
+                        selectedEdge = null;
                     } else if (point.type === 'heart') {
                         level.heartPositions.splice(point.index, 1);
                     }
@@ -300,21 +381,36 @@
             if (point) {
                 dragging = point;
                 selected = point;
+                selectedEdge = null;
                 render();
                 return;
             }
 
-            // Shift+click to insert on edge
-            if (e.shiftKey) {
-                const edge = findEdgeAt(pos);
-                if (edge) {
+            // Check for edge click (to select edge for mirror/door)
+            const edge = findEdgeAt(pos);
+            if (edge) {
+                // Shift+click to insert on edge
+                if (e.shiftKey) {
                     const snapped = { x: snapToGrid(pos.x), y: snapToGrid(pos.y) };
+                    // Adjust mirror/door indices when inserting
+                    level.mirrorIndices = level.mirrorIndices.map(i => i > edge.index ? i + 1 : i);
+                    level.doorIndices = level.doorIndices.map(i => i > edge.index ? i + 1 : i);
                     level.polyline.splice(edge.index + 1, 0, snapped);
+                    selectedEdge = null;
                     render();
                     updateOutput();
                     return;
                 }
+                // Select edge
+                selectedEdge = edge.index;
+                selected = null;
+                render();
+                return;
             }
+
+            // Clicking empty space deselects
+            selectedEdge = null;
+            selected = null;
 
             // Add new point based on tool
             const snapped = { x: snapToGrid(pos.x), y: snapToGrid(pos.y) };
@@ -376,19 +472,52 @@
 
             // Draw polyline
             if (level.polyline.length > 0) {
-                ctx.strokeStyle = '#e94560';
-                ctx.lineWidth = 2;
+                // Fill with transparency first
+                ctx.fillStyle = 'rgba(233, 69, 96, 0.1)';
                 ctx.beginPath();
                 ctx.moveTo(level.polyline[0].x, level.polyline[0].y);
                 for (let i = 1; i < level.polyline.length; i++) {
                     ctx.lineTo(level.polyline[i].x, level.polyline[i].y);
                 }
                 ctx.closePath();
-                ctx.stroke();
-
-                // Fill with transparency
-                ctx.fillStyle = 'rgba(233, 69, 96, 0.1)';
                 ctx.fill();
+
+                // Draw each edge separately with different colors
+                for (let i = 0; i < level.polyline.length; i++) {
+                    const a = level.polyline[i];
+                    const b = level.polyline[(i + 1) % level.polyline.length];
+
+                    const isMirror = level.mirrorIndices.includes(i);
+                    const isDoor = level.doorIndices.includes(i);
+                    const isSelected = selectedEdge === i;
+
+                    ctx.beginPath();
+                    ctx.moveTo(a.x, a.y);
+                    ctx.lineTo(b.x, b.y);
+
+                    if (isMirror) {
+                        ctx.strokeStyle = '#00d4ff';
+                        ctx.lineWidth = isSelected ? 6 : 4;
+                    } else if (isDoor) {
+                        ctx.strokeStyle = '#f5a623';
+                        ctx.lineWidth = isSelected ? 6 : 4;
+                    } else {
+                        ctx.strokeStyle = isSelected ? '#fff' : '#e94560';
+                        ctx.lineWidth = isSelected ? 4 : 2;
+                    }
+                    ctx.stroke();
+
+                    // Draw edge index at midpoint
+                    if (isMirror || isDoor || isSelected) {
+                        const midX = (a.x + b.x) / 2;
+                        const midY = (a.y + b.y) / 2;
+                        ctx.fillStyle = isMirror ? '#00d4ff' : isDoor ? '#f5a623' : '#fff';
+                        ctx.font = 'bold 12px sans-serif';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(i.toString(), midX, midY - 12);
+                    }
+                }
 
                 // Draw polyline points
                 level.polyline.forEach((p, i) => {
@@ -431,12 +560,38 @@
 
             // Draw player
             const isPlayerSelected = selected && selected.type === 'player';
+            const px = level.playerStartPos.x;
+            const py = level.playerStartPos.y;
+
             ctx.beginPath();
-            ctx.arc(level.playerStartPos.x, level.playerStartPos.y, POINT_RADIUS + 2, 0, Math.PI * 2);
+            ctx.arc(px, py, POINT_RADIUS + 2, 0, Math.PI * 2);
             ctx.fillStyle = isPlayerSelected ? '#fff' : '#53bf9d';
             ctx.fill();
             ctx.strokeStyle = '#fff';
             ctx.lineWidth = 2;
+            ctx.stroke();
+
+            // Player direction arrow
+            const arrowLen = 25;
+            const angle = level.playerStartAngle;
+            const ax = px + Math.cos(angle) * arrowLen;
+            const ay = py + Math.sin(angle) * arrowLen;
+
+            ctx.beginPath();
+            ctx.moveTo(px, py);
+            ctx.lineTo(ax, ay);
+            ctx.strokeStyle = '#53bf9d';
+            ctx.lineWidth = 3;
+            ctx.stroke();
+
+            // Arrowhead
+            const headLen = 8;
+            const headAngle = 0.5;
+            ctx.beginPath();
+            ctx.moveTo(ax, ay);
+            ctx.lineTo(ax - Math.cos(angle - headAngle) * headLen, ay - Math.sin(angle - headAngle) * headLen);
+            ctx.moveTo(ax, ay);
+            ctx.lineTo(ax - Math.cos(angle + headAngle) * headLen, ay - Math.sin(angle + headAngle) * headLen);
             ctx.stroke();
 
             // Player symbol
@@ -444,14 +599,17 @@
             ctx.font = 'bold 12px sans-serif';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            ctx.fillText('P', level.playerStartPos.x, level.playerStartPos.y);
+            ctx.fillText('P', px, py);
         }
 
         function updateOutput() {
             const exportLevel = {
                 polyline: level.polyline.map(p => ({ x: p.x, y: p.y })),
                 heartPositions: level.heartPositions.map(p => ({ x: p.x, y: p.y })),
-                playerStartPos: { x: level.playerStartPos.x, y: level.playerStartPos.y }
+                playerStartPos: { x: level.playerStartPos.x, y: level.playerStartPos.y },
+                playerStartAngle: level.playerStartAngle,
+                mirrorIndices: [...level.mirrorIndices].sort((a, b) => a - b),
+                doorIndices: [...level.doorIndices].sort((a, b) => a - b)
             };
             output.value = JSON.stringify(exportLevel, null, 2);
         }
