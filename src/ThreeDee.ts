@@ -29,6 +29,7 @@ export class ThreeDee {
 	private ceilingTextureData: ImageData | null = null;
 	private wallTextureData: ImageData | null = null;
 	private playerSpriteData: ImageData | null = null;
+	private maskSpriteData: ImageData | null = null;
 	private textureCanvas: OffscreenCanvas | null = null;
 	private textureCtx: OffscreenCanvasRenderingContext2D | null = null;
 
@@ -143,6 +144,9 @@ export class ThreeDee {
 		if (!this.playerSpriteData) {
 			this.playerSpriteData = this.extractTextureData(game.playerSpriteImage);
 		}
+		if (!this.maskSpriteData) {
+			this.maskSpriteData = this.extractTextureData(game.maskSpriteImage);
+		}
 	}
 
 	update() {
@@ -164,6 +168,7 @@ export class ThreeDee {
 		const ceilingTex = this.ceilingTextureData!;
 		const wallTex = this.wallTextureData!;
 		const spriteTex = this.playerSpriteData!;
+		const maskSpriteTex = this.maskSpriteData!;
 		const halfHeight = Constants.LOWRES_HEIGHT / 2;
 
 		// Track which pixels have been drawn (for sprite transparency)
@@ -257,13 +262,16 @@ export class ThreeDee {
 											);
 										const texIdx = (texY * spriteTex.width + texX) * 4;
 
-										const alpha = spriteTex.data[texIdx + 3]!;
-										if (alpha >= 10) {
-											// Opaque pixel - draw and mark as drawn
+										const maskAlpha = maskSpriteTex.data[texIdx + 3]!;
+										if (maskAlpha >= 10) {
 											const color: Rgb8Color = {
-												r: spriteTex.data[texIdx]! * spriteBrightnessFactor,
-												g: spriteTex.data[texIdx + 1]! * spriteBrightnessFactor,
-												b: spriteTex.data[texIdx + 2]! * spriteBrightnessFactor,
+												r: maskSpriteTex.data[texIdx]! * spriteBrightnessFactor,
+												g:
+													maskSpriteTex.data[texIdx + 1]! *
+													spriteBrightnessFactor,
+												b:
+													maskSpriteTex.data[texIdx + 2]! *
+													spriteBrightnessFactor,
 											};
 
 											const idx = (yScreen * Constants.LOWRES_WIDTH + x) * 3;
@@ -271,6 +279,25 @@ export class ThreeDee {
 											frameBuffer[idx + 1] = color.g;
 											frameBuffer[idx + 2] = color.b;
 											columnDrawn[yScreen] = 1;
+										} else {
+											const playerAlpha = spriteTex.data[texIdx + 3]!;
+											if (playerAlpha >= 10) {
+												const color: Rgb8Color = {
+													r: spriteTex.data[texIdx]! * spriteBrightnessFactor,
+													g:
+														spriteTex.data[texIdx + 1]! *
+														spriteBrightnessFactor,
+													b:
+														spriteTex.data[texIdx + 2]! *
+														spriteBrightnessFactor,
+												};
+
+												const idx = (yScreen * Constants.LOWRES_WIDTH + x) * 3;
+												frameBuffer[idx] = color.r;
+												frameBuffer[idx + 1] = color.g;
+												frameBuffer[idx + 2] = color.b;
+												columnDrawn[yScreen] = 1;
+											}
 										}
 										// If alpha < 10, don't mark as drawn - background will show through
 									}

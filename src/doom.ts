@@ -151,6 +151,7 @@ export interface GameImages {
 	ceiling: HTMLImageElement;
 	wall: HTMLImageElement;
 	playerSprite: HTMLImageElement;
+	maskSprite: HTMLImageElement;
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {
@@ -163,14 +164,15 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 }
 
 export async function loadGameImages(): Promise<GameImages> {
-	const [floor, ceiling, wall, playerSprite] = await Promise.all([
+	const [floor, ceiling, wall, playerSprite, maskSprite] = await Promise.all([
 		loadImage("/assets/floor.jpg"),
 		loadImage("/assets/ceiling.jpg"),
 		loadImage("/assets/wall.jpg"),
 		loadImage("/assets/player.png"),
+		loadImage("/assets/mask.png"),
 	]);
 	console.log("All images loaded");
-	return { floor, ceiling, wall, playerSprite };
+	return { floor, ceiling, wall, playerSprite, maskSprite };
 }
 
 export class Game {
@@ -187,6 +189,7 @@ export class Game {
 	public readonly ceilingImage: HTMLImageElement;
 	public readonly wallImage: HTMLImageElement;
 	public readonly playerSpriteImage: HTMLImageElement;
+	public readonly maskSpriteImage: HTMLImageElement;
 	private readonly playerSprite: Sprite;
 
 	constructor(
@@ -200,6 +203,7 @@ export class Game {
 		this.ceilingImage = images.ceiling;
 		this.wallImage = images.wall;
 		this.playerSpriteImage = images.playerSprite;
+		this.maskSpriteImage = images.maskSprite;
 
 		this.threeDee = new ThreeDee(this);
 
