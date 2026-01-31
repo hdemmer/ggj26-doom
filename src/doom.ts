@@ -1,10 +1,12 @@
 /** biome-ignore-all lint/style/noNonNullAssertion: asdf */
+
+import type { Clut } from "@/Clut.ts";
 import { Constants } from "@/Constants.ts";
 import type { IVec2 } from "@/IVec2.ts";
 import { initLevel } from "@/initLevel.ts";
-import { intersectLineLine } from "@/intersectLineLine.ts";
 import { Player } from "@/player.ts";
 import { pointInTriangle } from "@/pointInTriangle.ts";
+import { propagateRayMut } from "@/propagateRayMut.ts";
 import type { Ray } from "@/ray.ts";
 import { ThreeDee } from "@/ThreeDee.ts";
 
@@ -88,71 +90,6 @@ export class Simplex {
 	}
 }
 
-function propagateRayMut(ray: Ray): void {
-	const { pos, dir, simplex, sideIndex } = ray;
-	const target = {
-		x: pos.x + Constants.MAX_DISTANCE * dir.x,
-		y: pos.y + Constants.MAX_DISTANCE * dir.y,
-	};
-	const intersection: IVec2 = { ...Vec2.ZERO };
-	// iterate over sides
-	for (let i = 0; i < simplex.sides.length; i++) {
-		if (i === sideIndex) {
-			continue; // skip the side we entered from
-		}
-		const side = simplex.sides[i]!;
-		if (
-			intersectLineLine(
-				pos.x,
-				pos.y,
-				target.x,
-				target.y,
-				side.start.x,
-				side.start.y,
-				side.end.x,
-				side.end.y,
-				intersection,
-			)
-		) {
-			// hit this side
-			if (side.simplex) {
-				// console.log("propagating to neighbor simplex", side.simplex.id);
-				// has neighbor, propagate ray
-				ray.pos.x = intersection.x;
-				ray.pos.y = intersection.y;
-				ray.simplex = side.simplex;
-				// Find the side index in the NEW simplex that connects back to the OLD simplex
-				const newSideIndex = side.simplex.findSideIndexForSimplex(simplex);
-				ray.sideIndex = newSideIndex;
-				// console.log("newSideIndex", newSideIndex);
-
-				return;
-			} else {
-				if (side.isMirror) {
-					// no neighbor, reflect ray on side normal
-					const normal = side.normal;
-					const dot = dir.x * normal.x + dir.y * normal.y;
-					dir.x = dir.x - 2 * dot * normal.x;
-					dir.y = dir.y - 2 * dot * normal.y;
-					// move pos a bit away from the wall to avoid precision issues
-					ray.pos.x = intersection.x + normal.x * Constants.EPSILON;
-					ray.pos.y = intersection.y + normal.y * Constants.EPSILON;
-					ray.sideIndex = i; // now on this side after reflection
-					return;
-				} else {
-					// ray terminates
-					// console.log("ray terminated at wall");
-					ray.pos.x = intersection.x;
-					ray.pos.y = intersection.y;
-					ray.sideIndex = -1;
-					ray.isTerminated = true;
-					return;
-				}
-			}
-		}
-	}
-}
-
 export class Level {
 	constructor(
 		public readonly simplices: Simplex[] = [],
@@ -183,7 +120,7 @@ export class Level {
 		}
 	}
 
-	castRay(origin: IVec2, direction: IVec2, result: IVec2[]) {
+	castRay(origin: IVec2, direction: IVec2, clut: Clut | null, result: IVec2[]) {
 		result.length = 0;
 		const currentSimplex = this.findSimplex(origin);
 		if (!currentSimplex) {
@@ -195,6 +132,8 @@ export class Level {
 			dir: { ...direction },
 			sideIndex: -1,
 			isTerminated: false,
+			clut,
+			numReflections: 0,
 		};
 		for (let i = 0; i < Constants.MAX_STEPS; i++) {
 			result.push({ ...ray.pos });
@@ -376,7 +315,7 @@ export class Game {
 				simplex,
 			};
 
-			level.castRay(ray.pos, ray.dir, this.rayPoints);
+			level.castRay(ray.pos, ray.dir, null, this.rayPoints);
 		}
 	}
 }

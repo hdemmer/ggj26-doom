@@ -1,7 +1,11 @@
 /** biome-ignore-all lint/style/noNonNullAssertion: <explanation> */
+
+import { Clut } from "@/Clut.ts";
 import { Constants } from "@/Constants.ts";
 import type { Ctx, Game } from "@/doom.ts";
 import type { IVec2 } from "@/IVec2.ts";
+import { propagateRayMut } from "@/propagateRayMut.ts";
+import type { Ray } from "@/ray.ts";
 
 export class ThreeDee {
 	private readonly frameBuffer: Uint8Array;
@@ -64,53 +68,19 @@ export class ThreeDee {
 		// Clear frame buffer
 		frameBuffer.fill(0);
 
-		// Draw floor and ceiling
-		this.ensureTexturesExtracted();
-		{
-			const floorTex = this.floorTextureData!;
-			const ceilingTex = this.ceilingTextureData!;
-			const halfHeight = Constants.LOWRES_HEIGHT / 2;
-
-			for (let y = 0; y < Constants.LOWRES_HEIGHT; y++) {
-				if (y === halfHeight) continue;
-
-				const isCeiling = y < halfHeight;
-				const texture = isCeiling ? ceilingTex : floorTex;
-				const texWidth = texture.width;
-				const texHeight = texture.height;
-				const texData = texture.data;
-
-				// Calculate row distance using perspective projection
-				const rowFromCenter = isCeiling ? halfHeight - y : y - halfHeight;
-				const rowDistance = (halfHeight * 32) / rowFromCenter;
-
-				for (let x = 0; x < Constants.LOWRES_WIDTH; x++) {
-					const angleOffset =
-						(x / (Constants.LOWRES_WIDTH - 1) - 0.5) * Constants.FOV;
-					const rayAngle = player.angle + angleOffset;
-
-					// World position for this pixel
-					const worldX = player.pos.x + Math.cos(rayAngle) * rowDistance;
-					const worldY = player.pos.y + Math.sin(rayAngle) * rowDistance;
-
-					// Texture coordinates with wrapping
-					let texX = Math.floor(worldX * 8) % texWidth;
-					let texY = Math.floor(worldY * 8) % texHeight;
-					if (texX < 0) texX += texWidth;
-					if (texY < 0) texY += texHeight;
-
-					// Sample texture
-					const texIdx = (texY * texWidth + texX) * 4;
-					const idx = (y * Constants.LOWRES_WIDTH + x) * 3;
-
-					// Apply distance-based shading
-					const shade = Math.max(0.1, Math.min(1, 1 - rowDistance / 200));
-					frameBuffer[idx] = texData[texIdx]! * shade;
-					frameBuffer[idx + 1] = texData[texIdx + 1]! * shade;
-					frameBuffer[idx + 2] = texData[texIdx + 2]! * shade;
-				}
-			}
+		const playerSimplex = this.game.level.findSimplex(player.pos);
+		if (!playerSimplex) {
+			return;
 		}
+
+		this.ensureTexturesExtracted();
+
+		// TODO: use these
+		const floorTex = this.floorTextureData!;
+		const ceilingTex = this.ceilingTextureData!;
+		const halfHeight = Constants.LOWRES_HEIGHT / 2;
+
+		const clut = Clut.makeIdentity();
 
 		for (let x = 0; x < Constants.LOWRES_WIDTH; x++) {
 			// Map x from [0, WIDTH-1] to [-FOV/2, FOV/2]
@@ -125,8 +95,82 @@ export class ThreeDee {
 			};
 
 			// Cast ray
-			level.castRay(player.pos, rayDir, rayPoints);
+			clut.identityMut();
+			const ray: Ray = {
+				simplex: playerSimplex,
+				pos: { ...player.pos },
+				dir: rayDir,
+				sideIndex: -1,
+				isTerminated: false,
+				clut,
+				numReflections: 0,
+			};
+			let distanceSum = 0;
+			let previousWallHeight = Constants.LOWRES_HEIGHT;
+			const previousPos: IVec2 = { x: ray.pos.x, y: ray.pos.y };
+			for (let i = 0; i < Constants.MAX_STEPS; i++) {
+				propagateRayMut(ray);
+				const dx = ray.pos.x - previousPos.x;
+				const dy = ray.pos.y - previousPos.y;
+				distanceSum += Math.hypot(dx, dy);
 
+				// Calculate wall height (inverse proportion to distance)
+				let distance = distanceSum;
+				// Fisheye correction: multiply by cos of angle offset
+				distance *= Math.cos(angleOffset);
+				const wallHeight = Math.min(
+					Constants.LOWRES_HEIGHT,
+					(Constants.LOWRES_HEIGHT * 50) / distance, // the "50" determines how high the walls feel
+				);
+
+				const unclampedBrightness =
+					255 / (0.01 * distance) / (ray.numReflections + 1);
+				const brightness = Math.max(0, Math.min(255, unclampedBrightness));
+
+				// Fill floor and ceiling
+				// for (let yIdx = 0; yIdx < previousWallHeight; yIdx++) {
+				// 	const yCeil = yIdx;
+				//
+				// 	if (yCeil >= 0 && yCeil < Constants.LOWRES_HEIGHT) {
+				// 		const idx = (yCeil * Constants.LOWRES_WIDTH + x) * 3;
+				// 		frameBuffer[idx] = brightness;
+				// 		frameBuffer[idx + 1] = brightness;
+				// 		frameBuffer[idx + 2] = brightness;
+				// 	}
+				//
+				// 	const yFloor = Constants.LOWRES_HEIGHT - yIdx;
+				// 	if (yFloor >= 0 && yFloor < Constants.LOWRES_HEIGHT) {
+				// 		const idx = (yFloor * Constants.LOWRES_WIDTH + x) * 3;
+				// 		frameBuffer[idx] = brightness;
+				// 		frameBuffer[idx + 1] = brightness;
+				// 		frameBuffer[idx + 2] = brightness;
+				// 	}
+				// }
+
+				if (ray.isTerminated) {
+					// fill in the wall
+					for (let yIdx = 0; yIdx < wallHeight; yIdx++) {
+						const yWall = halfHeight + yIdx;
+
+						if (yWall >= 0 && yWall < Constants.LOWRES_HEIGHT) {
+							const idx = (yWall * Constants.LOWRES_WIDTH + x) * 3;
+							frameBuffer[idx] = brightness;
+							frameBuffer[idx + 1] = brightness;
+							frameBuffer[idx + 2] = brightness;
+						}
+					}
+
+					break;
+				}
+
+				previousPos.x = ray.pos.x;
+				previousPos.y = ray.pos.y;
+				previousWallHeight = wallHeight;
+			}
+
+			/*
+
+            // OLD DRAWING CODE:
 			if (rayPoints.length >= 2) {
 				// Distance to first wall hit
 				let distanceSum = 0;
@@ -162,6 +206,8 @@ export class ThreeDee {
 					frameBuffer[idx + 2] = brightness;
 				}
 			}
+
+             */
 		}
 	}
 
