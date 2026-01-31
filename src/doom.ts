@@ -301,8 +301,11 @@ export async function doom(ctx: Ctx) {
 	const game = new Game(ctx, images);
 	(window as any).game = game;
 
+	let lastTime = performance.now();
 	function handleRaf(t: number) {
-		game.tick(t);
+		const deltaTime = t - lastTime;
+		lastTime = t;
+		game.tick(deltaTime);
 		requestAnimationFrame(handleRaf);
 	}
 
