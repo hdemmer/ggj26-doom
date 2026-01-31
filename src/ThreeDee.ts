@@ -16,6 +16,7 @@ export class ThreeDee {
 
 	private floorTextureData: ImageData | null = null;
 	private ceilingTextureData: ImageData | null = null;
+	private wallTextureData: ImageData | null = null;
 	private textureCanvas: OffscreenCanvas | null = null;
 	private textureCtx: OffscreenCanvasRenderingContext2D | null = null;
 
@@ -58,6 +59,9 @@ export class ThreeDee {
 		if (!this.ceilingTextureData) {
 			this.ceilingTextureData = this.extractTextureData(game.ceilingImage);
 		}
+		if (!this.wallTextureData) {
+			this.wallTextureData = this.extractTextureData(game.wallImage);
+		}
 	}
 
 	update() {
@@ -78,6 +82,7 @@ export class ThreeDee {
 		// TODO: use these
 		const floorTex = this.floorTextureData!;
 		const ceilingTex = this.ceilingTextureData!;
+		const wallTex = this.wallTextureData!;
 		const halfHeight = Constants.LOWRES_HEIGHT / 2;
 
 		const clut = Clut.makeIdentity();
@@ -143,21 +148,29 @@ export class ThreeDee {
 				}
 
 				if (ray.isTerminated) {
-					// fill in the wall
-
-					const terminalBrightness = Math.max(
-						0,
-						Math.min(255, brightness * ray.terminalU),
-					);
+					// fill in the wall using texture
+					const u = ray.terminalU;
+					const texX = Math.floor(u * (wallTex.width - 1)) % wallTex.width;
 
 					for (let yIdx = -1 * wallHeight; yIdx < wallHeight; yIdx++) {
 						const yWall = halfHeight - yIdx;
 
 						if (yWall >= 0 && yWall < Constants.LOWRES_HEIGHT) {
+							// Calculate V coordinate (0 at top, 1 at bottom)
+							const v = (yIdx + wallHeight) / (2 * wallHeight);
+							const texY = Math.floor(v * (wallTex.height - 1));
+							const texIdx = (texY * wallTex.width + texX) * 4;
+
+							// Sample texture and apply brightness
+							const brightnessFactor = brightness / 255;
+							const r = wallTex.data[texIdx]! * brightnessFactor;
+							const g = wallTex.data[texIdx + 1]! * brightnessFactor;
+							const b = wallTex.data[texIdx + 2]! * brightnessFactor;
+
 							const idx = (yWall * Constants.LOWRES_WIDTH + x) * 3;
-							frameBuffer[idx] = terminalBrightness;
-							frameBuffer[idx + 1] = terminalBrightness;
-							frameBuffer[idx + 2] = terminalBrightness;
+							frameBuffer[idx] = r;
+							frameBuffer[idx + 1] = g;
+							frameBuffer[idx + 2] = b;
 						}
 					}
 
