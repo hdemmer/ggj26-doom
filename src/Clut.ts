@@ -12,6 +12,12 @@ export class Clut {
 		return new Clut(Float32Array.from([1, 0, 0, 0, 1, 0, 0, 0, 1]));
 	}
 
+	static makeDarken(factor = 0.95): Clut {
+		return new Clut(
+			Float32Array.from([factor, 0, 0, 0, factor, 0, 0, 0, factor]),
+		);
+	}
+
 	applyMut(color: Rgb8Color) {
 		const d = this.data;
 		const { r, g, b } = color;
@@ -64,9 +70,9 @@ export class Clut {
 	 * random rotations around the three axes.
 	 */
 	static makeRandomUnitary(): Clut {
-		const ax = Math.random() * Math.PI * 2;
-		const ay = Math.random() * Math.PI * 2;
-		const az = Math.random() * Math.PI * 2;
+		const ax = Math.random();
+		const ay = Math.random();
+		const az = Math.random();
 
 		const cx = Math.cos(ax),
 			sx = Math.sin(ax);

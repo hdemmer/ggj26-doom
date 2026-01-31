@@ -37,6 +37,26 @@ export class Player {
 
 	public size: number = 10;
 
+	public distanceTravelled: number = 0;
+
+	/**
+	 * Move the player to a new position and accumulate distance travelled.
+	 */
+	moveTo(newPos: IVec2): void {
+		const dx = newPos.x - this.pos.x;
+		const dy = newPos.y - this.pos.y;
+		this.distanceTravelled += Math.hypot(dx, dy);
+		this.pos.x = newPos.x;
+		this.pos.y = newPos.y;
+	}
+
+	/**
+	 * Returns true every other 10 units of distance travelled for walk animation.
+	 */
+	isFlipped(): boolean {
+		return Math.floor(this.distanceTravelled / 10) % 2 === 1;
+	}
+
 	/**
 	 * Check if the player can move to the target position without getting
 	 * too close to walls.
@@ -62,6 +82,17 @@ export class Player {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Check if a facing direction is towards a view direction.
+	 * @param facingDir The direction something is facing
+	 * @param viewDir The view direction (e.g., ray direction from camera)
+	 * @returns true if facing towards the view direction, false if facing away
+	 */
+	static isFacingTowards(facingDir: IVec2, viewDir: IVec2): boolean {
+		// Dot product: negative means facing towards (opposite directions)
+		return facingDir.x * viewDir.x + facingDir.y * viewDir.y < 0;
 	}
 
 	draw(ctx: Ctx) {

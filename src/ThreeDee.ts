@@ -4,12 +4,22 @@ import { Clut, type Rgb8Color } from "@/Clut.ts";
 import { Constants } from "@/Constants.ts";
 import type { Ctx, Game } from "@/doom.ts";
 import type { IVec2 } from "@/IVec2.ts";
+import { Player } from "@/player.ts";
 import { propagateRayMut } from "@/propagateRayMut.ts";
 import type { Ray } from "@/ray.ts";
 
 export interface Sprite {
 	pos: IVec2;
 	size: number;
+	angle: number; // facing angle in radians
+	distanceTravelled: number; // accumulated movement distance
+}
+
+/**
+ * Returns true every other 10 units of distance travelled for walk animation.
+ */
+function isSpriteFlipped(sprite: Sprite): boolean {
+	return Math.floor(sprite.distanceTravelled / 10) % 2 === 1;
 }
 
 interface RayCircleHit {
@@ -29,7 +39,7 @@ export class ThreeDee {
 	private ceilingTextureData: ImageData | null = null;
 	private wallTextureData: ImageData | null = null;
 	private playerSpriteData: ImageData | null = null;
-	private maskSpriteData: ImageData | null = null;
+	private helmetSpriteData: ImageData | null = null;
 	private textureCanvas: OffscreenCanvas | null = null;
 	private textureCtx: OffscreenCanvasRenderingContext2D | null = null;
 	public whiteMaskPixelCount: number = 0;
@@ -49,8 +59,13 @@ export class ThreeDee {
 		this.offscreenCtx = this.offscreenCanvas.getContext("2d")!;
 	}
 
-	addSprite(pos: IVec2, size: number): Sprite {
-		const sprite: Sprite = { pos: { ...pos }, size };
+	addSprite(pos: IVec2, size: number, angle: number = 0): Sprite {
+		const sprite: Sprite = {
+			pos: { ...pos },
+			size,
+			angle,
+			distanceTravelled: 0,
+		};
 		this.sprites.push(sprite);
 		return sprite;
 	}
@@ -145,8 +160,8 @@ export class ThreeDee {
 		if (!this.playerSpriteData) {
 			this.playerSpriteData = this.extractTextureData(game.playerSpriteImage);
 		}
-		if (!this.maskSpriteData) {
-			this.maskSpriteData = this.extractTextureData(game.maskSpriteImage);
+		if (!this.helmetSpriteData) {
+			this.helmetSpriteData = this.extractTextureData(game.helmetSpriteImage);
 		}
 	}
 
@@ -155,8 +170,8 @@ export class ThreeDee {
 		const player = game.player;
 		const level = game.level;
 
-		// Count fully white mask sprite pixels rendered this frame
-		let whiteMaskPixelCount = 0;
+		// Count fully white helmet sprite pixels rendered this frame
+		let whiteHelmetPixelCount = 0;
 
 		// Clear frame buffer
 		frameBuffer.fill(0);
@@ -172,7 +187,7 @@ export class ThreeDee {
 		const ceilingTex = this.ceilingTextureData!;
 		const wallTex = this.wallTextureData!;
 		const spriteTex = this.playerSpriteData!;
-		const maskSpriteTex = this.maskSpriteData!;
+		const helmetSpriteTex = this.helmetSpriteData!;
 		const halfHeight = Constants.LOWRES_HEIGHT / 2;
 
 		// Z-buffer for this column (stores distance at each pixel for depth sorting)
@@ -209,6 +224,8 @@ export class ThreeDee {
 			let numReflections = 0;
 			let previousWallHeight = Constants.LOWRES_HEIGHT;
 			const previousPos: IVec2 = { x: ray.pos.x, y: ray.pos.y };
+			// Save direction before propagation for sprite checks
+			const segmentDir: IVec2 = { x: rayDir.x, y: rayDir.y };
 
 			// Maintain a color lookup table for this ray
 			const clut = Clut.makeIdentity();
@@ -226,65 +243,102 @@ export class ThreeDee {
 				// Fisheye correction: multiply by cos of angle offset
 				distance *= Math.cos(angleOffset);
 
-				// Check sprite intersections for this ray segment (only after reflections)
-				// Use previousPos and ray.dir (which may have changed after reflection)
-				if (numReflections > 0) {
-					for (const sprite of this.sprites) {
-						const hit = this.rayCircleIntersect(previousPos, ray.dir, sprite);
-						if (hit) {
-							// Check if sprite falls within this step (0 to stepDist from previousPos)
-							if (hit.distance > 0 && hit.distance <= stepDist) {
-								const totalDist = previousDistanceSum + hit.distance;
-								const spriteCorrectedDist = totalDist * Math.cos(angleOffset);
-								const spriteHeight = Math.floor(
-									Math.min(
-										Constants.LOWRES_HEIGHT,
-										(Constants.LOWRES_HEIGHT * 2 * sprite.size) /
-											spriteCorrectedDist,
-									),
-								);
-
-								const spriteBrightness = Math.max(
-									0,
-									Math.min(255, 255 / (0.01 * spriteCorrectedDist)),
-								);
-								const spriteBrightnessFactor = spriteBrightness / 255;
-
-								const texX = Math.floor(hit.u * (spriteTex.width - 1));
-								const unclampedSpriteHeight =
+				// Check sprite intersections for this ray segment
+				// Use previousPos and segmentDir (the direction BEFORE any reflection)
+				for (const sprite of this.sprites) {
+					const hit = this.rayCircleIntersect(previousPos, segmentDir, sprite);
+					if (hit) {
+						// Check if sprite falls within this step (0 to stepDist from previousPos)
+						if (hit.distance > 0 && hit.distance <= stepDist) {
+							const totalDist = previousDistanceSum + hit.distance;
+							const spriteCorrectedDist = totalDist * Math.cos(angleOffset);
+							const spriteHeight = Math.floor(
+								Math.min(
+									Constants.LOWRES_HEIGHT,
 									(Constants.LOWRES_HEIGHT * 2 * sprite.size) /
-									spriteCorrectedDist;
+										spriteCorrectedDist,
+								),
+							);
 
-								for (let yIdx = -spriteHeight; yIdx < spriteHeight; yIdx++) {
-									const yScreen = halfHeight - yIdx + Constants.PLAYER_Y_FUDGE;
-									if (
-										yScreen >= 0 &&
-										yScreen < Constants.LOWRES_HEIGHT &&
-										spriteCorrectedDist < columnDepth[yScreen]!
-									) {
-										const v =
-											(yIdx + unclampedSpriteHeight) /
-											(2 * unclampedSpriteHeight);
-										const texY =
-											spriteTex.height -
-											Math.max(
-												0,
-												Math.min(
-													spriteTex.height - 1,
-													Math.floor(v * (spriteTex.height - 1)),
-												),
-											);
-										const texIdx = (texY * spriteTex.width + texX) * 4;
+							const spriteBrightness = Math.max(
+								0,
+								Math.min(255, 255 / (0.01 * spriteCorrectedDist)),
+							);
+							const spriteBrightnessFactor = spriteBrightness / 255;
 
-										const maskAlpha = maskSpriteTex.data[texIdx + 3]!;
+							// Flip player texture horizontally for walk animation (mask stays unflipped)
+							const playerU = isSpriteFlipped(sprite) ? 1 - hit.u : hit.u;
+							const playerTexX = Math.floor(playerU * (spriteTex.width - 1));
+							const maskTexX = Math.floor(hit.u * (helmetSpriteTex.width - 1));
+							const unclampedSpriteHeight =
+								(Constants.LOWRES_HEIGHT * 2 * sprite.size) /
+								spriteCorrectedDist;
+
+							// Check if sprite is facing the camera
+							const spriteFacingDir: IVec2 = {
+								x: Math.cos(sprite.angle),
+								y: Math.sin(sprite.angle),
+							};
+							const facingCamera = Player.isFacingTowards(
+								spriteFacingDir,
+								ray.dir,
+							);
+
+							for (let yIdx = -spriteHeight; yIdx < spriteHeight; yIdx++) {
+								const yScreen = halfHeight - yIdx + Constants.PLAYER_Y_FUDGE;
+								if (
+									yScreen >= 0 &&
+									yScreen < Constants.LOWRES_HEIGHT &&
+									spriteCorrectedDist < columnDepth[yScreen]!
+								) {
+									const v =
+										(yIdx + unclampedSpriteHeight) /
+										(2 * unclampedSpriteHeight);
+									const texY =
+										spriteTex.height -
+										Math.max(
+											0,
+											Math.min(
+												spriteTex.height - 1,
+												Math.floor(v * (spriteTex.height - 1)),
+											),
+										);
+									const playerTexIdx =
+										(texY * spriteTex.width + playerTexX) * 4;
+									const maskTexIdx =
+										(texY * helmetSpriteTex.width + maskTexX) * 4;
+
+									const playerAlpha = spriteTex.data[playerTexIdx + 3]!;
+
+									const maskAlpha = helmetSpriteTex.data[maskTexIdx + 3]!;
+									// facingCamera = true means sprite facing towards ray.dir → helmet on top
+									// facingCamera = false means sprite facing away from ray.dir → player on top
+									const helmetOnTop = facingCamera;
+
+									if (helmetOnTop) {
+										// Draw player first (bottom layer)
+										if (playerAlpha >= 10) {
+											const color: Rgb8Color = {
+												r: spriteTex.data[playerTexIdx]! * spriteBrightnessFactor,
+												g: spriteTex.data[playerTexIdx + 1]! * spriteBrightnessFactor,
+												b: spriteTex.data[playerTexIdx + 2]! * spriteBrightnessFactor,
+											};
+											clut.applyMut(color);
+
+											const idx = (yScreen * Constants.LOWRES_WIDTH + x) * 3;
+											frameBuffer[idx] = color.r;
+											frameBuffer[idx + 1] = color.g;
+											frameBuffer[idx + 2] = color.b;
+											columnDepth[yScreen] = spriteCorrectedDist;
+										}
+										// Draw helmet on top
 										if (maskAlpha >= 10) {
-											const maskR = maskSpriteTex.data[texIdx]!;
-											const maskG = maskSpriteTex.data[texIdx + 1]!;
-											const maskB = maskSpriteTex.data[texIdx + 2]!;
+											const maskR = helmetSpriteTex.data[maskTexIdx]!;
+											const maskG = helmetSpriteTex.data[maskTexIdx + 1]!;
+											const maskB = helmetSpriteTex.data[maskTexIdx + 2]!;
 
-											// Count fully white mask pixels
 											if (maskR === 255 && maskG === 255 && maskB === 255) {
-												whiteMaskPixelCount++;
+												whiteHelmetPixelCount++;
 											}
 
 											const color: Rgb8Color = {
@@ -299,30 +353,49 @@ export class ThreeDee {
 											frameBuffer[idx + 1] = color.g;
 											frameBuffer[idx + 2] = color.b;
 											columnDepth[yScreen] = spriteCorrectedDist;
-										} else {
-											const playerAlpha = spriteTex.data[texIdx + 3]!;
-											if (playerAlpha >= 10) {
-												const color: Rgb8Color = {
-													r: spriteTex.data[texIdx]! * spriteBrightnessFactor,
-													g:
-														spriteTex.data[texIdx + 1]! *
-														spriteBrightnessFactor,
-													b:
-														spriteTex.data[texIdx + 2]! *
-														spriteBrightnessFactor,
-												};
-												clut.applyMut(color);
-
-												const idx = (yScreen * Constants.LOWRES_WIDTH + x) * 3;
-												frameBuffer[idx] = color.r;
-												frameBuffer[idx + 1] = color.g;
-												frameBuffer[idx + 2] = color.b;
-												columnDepth[yScreen] = spriteCorrectedDist;
-											}
 										}
-										// If alpha < 10, don't mark as drawn - background will show through
+									} else {
+										// Draw helmet first (bottom layer)
+										if (maskAlpha >= 10) {
+											const maskR = helmetSpriteTex.data[maskTexIdx]!;
+											const maskG = helmetSpriteTex.data[maskTexIdx + 1]!;
+											const maskB = helmetSpriteTex.data[maskTexIdx + 2]!;
+
+											if (maskR === 255 && maskG === 255 && maskB === 255) {
+												whiteHelmetPixelCount++;
+											}
+
+											const color: Rgb8Color = {
+												r: maskR * spriteBrightnessFactor,
+												g: maskG * spriteBrightnessFactor,
+												b: maskB * spriteBrightnessFactor,
+											};
+											clut.applyMut(color);
+
+											const idx = (yScreen * Constants.LOWRES_WIDTH + x) * 3;
+											frameBuffer[idx] = color.r;
+											frameBuffer[idx + 1] = color.g;
+											frameBuffer[idx + 2] = color.b;
+											columnDepth[yScreen] = spriteCorrectedDist;
+										}
+										// Draw player on top
+										if (playerAlpha >= 10) {
+											const color: Rgb8Color = {
+												r: spriteTex.data[playerTexIdx]! * spriteBrightnessFactor,
+												g: spriteTex.data[playerTexIdx + 1]! * spriteBrightnessFactor,
+												b: spriteTex.data[playerTexIdx + 2]! * spriteBrightnessFactor,
+											};
+											clut.applyMut(color);
+
+											const idx = (yScreen * Constants.LOWRES_WIDTH + x) * 3;
+											frameBuffer[idx] = color.r;
+											frameBuffer[idx + 1] = color.g;
+											frameBuffer[idx + 2] = color.b;
+											columnDepth[yScreen] = spriteCorrectedDist;
+										}
 									}
 								}
+								// If neither alpha >= 10, don't mark as drawn - background will show through
 							}
 						}
 					}
@@ -357,6 +430,13 @@ export class ThreeDee {
 						(distanceSum * lambda + previousDistanceSum * (1 - lambda)) *
 						Math.cos(angleOffset);
 
+					// Calculate brightness per-pixel based on actual pixel distance
+					const pixelBrightness = Math.max(
+						0,
+						Math.min(255, 255 / (0.01 * pixelDist) / (numReflections + 1)),
+					);
+					const pixelBrightnessFactor = pixelBrightness / 255;
+
 					// Ceiling
 					const yCeil = halfHeight - yIdx;
 					if (
@@ -376,9 +456,9 @@ export class ThreeDee {
 						const texIdx = (texY * ceilingTex.width + texX) * 4;
 
 						const color: Rgb8Color = {
-							r: ceilingTex.data[texIdx]! * brightnessFactor,
-							g: ceilingTex.data[texIdx + 1]! * brightnessFactor,
-							b: ceilingTex.data[texIdx + 2]! * brightnessFactor,
+							r: ceilingTex.data[texIdx]! * pixelBrightnessFactor,
+							g: ceilingTex.data[texIdx + 1]! * pixelBrightnessFactor,
+							b: ceilingTex.data[texIdx + 2]! * pixelBrightnessFactor,
 						};
 						clut.applyMut(color);
 
@@ -408,9 +488,9 @@ export class ThreeDee {
 						const texIdx = (texY * floorTex.width + texX) * 4;
 
 						const color: Rgb8Color = {
-							r: floorTex.data[texIdx]! * brightnessFactor,
-							g: floorTex.data[texIdx + 1]! * brightnessFactor,
-							b: floorTex.data[texIdx + 2]! * brightnessFactor,
+							r: floorTex.data[texIdx]! * pixelBrightnessFactor,
+							g: floorTex.data[texIdx + 1]! * pixelBrightnessFactor,
+							b: floorTex.data[texIdx + 2]! * pixelBrightnessFactor,
 						};
 
 						clut.applyMut(color);
@@ -473,6 +553,9 @@ export class ThreeDee {
 
 				previousPos.x = ray.pos.x;
 				previousPos.y = ray.pos.y;
+				// Update segment direction for next iteration (may have changed due to reflection)
+				segmentDir.x = ray.dir.x;
+				segmentDir.y = ray.dir.y;
 				previousWallHeight = wallHeight;
 				// Apply mirror's clut on reflection
 				if (ray.numReflections > numReflections && ray.reflectionClut) {
@@ -523,7 +606,7 @@ export class ThreeDee {
              */
 		}
 
-		this.whiteMaskPixelCount = whiteMaskPixelCount;
+		this.whiteMaskPixelCount = whiteHelmetPixelCount;
 	}
 
 	draw(ctx: Ctx) {

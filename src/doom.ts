@@ -154,7 +154,7 @@ export interface GameImages {
 	ceiling: HTMLImageElement;
 	wall: HTMLImageElement;
 	playerSprite: HTMLImageElement;
-	maskSprite: HTMLImageElement;
+	helmetSprite: HTMLImageElement;
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {
@@ -175,7 +175,7 @@ export async function loadGameImages(): Promise<GameImages> {
 		loadImage("/assets/mask.png"),
 	]);
 	console.log("All images loaded");
-	return { floor, ceiling, wall, playerSprite, maskSprite };
+	return { floor, ceiling, wall, playerSprite, helmetSprite: maskSprite };
 }
 
 export class Game {
@@ -192,7 +192,7 @@ export class Game {
 	public readonly ceilingImage: HTMLImageElement;
 	public readonly wallImage: HTMLImageElement;
 	public readonly playerSpriteImage: HTMLImageElement;
-	public readonly maskSpriteImage: HTMLImageElement;
+	public readonly helmetSpriteImage: HTMLImageElement;
 	private readonly playerSprite: Sprite;
 
 	constructor(
@@ -206,7 +206,7 @@ export class Game {
 		this.ceilingImage = images.ceiling;
 		this.wallImage = images.wall;
 		this.playerSpriteImage = images.playerSprite;
-		this.maskSpriteImage = images.maskSprite;
+		this.helmetSpriteImage = images.helmetSprite;
 
 		this.threeDee = new ThreeDee(this);
 
@@ -248,8 +248,7 @@ export class Game {
 				y: player.pos.y + Math.sin(player.angle) * moveSpeed,
 			};
 			if (player.canMoveTo(target, level)) {
-				player.pos.x = target.x;
-				player.pos.y = target.y;
+				player.moveTo(target);
 			}
 		}
 		if (this.keys.has("s") || this.keys.has("ArrowDown")) {
@@ -258,14 +257,15 @@ export class Game {
 				y: player.pos.y - Math.sin(player.angle) * moveSpeed,
 			};
 			if (player.canMoveTo(target, level)) {
-				player.pos.x = target.x;
-				player.pos.y = target.y;
+				player.moveTo(target);
 			}
 		}
 
 		this.playerSprite.pos.x = player.pos.x;
 		this.playerSprite.pos.y = player.pos.y;
 		this.playerSprite.size = player.size;
+		this.playerSprite.angle = player.angle;
+		this.playerSprite.distanceTravelled = player.distanceTravelled;
 
 		this.castRay();
 		this.threeDee.update();

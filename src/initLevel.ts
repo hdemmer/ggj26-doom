@@ -93,9 +93,9 @@ export function initLevel(): Level {
 	const simplices: Simplex[] = [root, second];
 
 	root.sides[2].isMirror = true;
-	root.sides[2].mirrorClut = Clut.makeRandomUnitary();
+	root.sides[2].mirrorClut = Clut.makeDarken();
 	second.sides[0].isMirror = true;
-	second.sides[0].mirrorClut = Clut.makeRandomUnitary();
+	second.sides[0].mirrorClut = Clut.makeDarken();
 
 	return new Level(simplices, root);
 
