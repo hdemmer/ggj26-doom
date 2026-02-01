@@ -12,7 +12,7 @@ export class Clut {
 		return new Clut(Float32Array.from([1, 0, 0, 0, 1, 0, 0, 0, 1]));
 	}
 
-	static makeDarken(factor = 0.99): Clut {
+	static makeDarken(factor = 0.98): Clut {
 		return new Clut(
 			Float32Array.from([factor, 0, 0, 0, factor, 0, 0, 0, factor]),
 		);

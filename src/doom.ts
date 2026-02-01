@@ -130,7 +130,6 @@ export class Game {
 	private lastDistanceTravelled: number = 0;
 	private transitionTimeRemaining: number = 0;
 	private transitionColor: string = "grey";
-	private static readonly TRANSITION_DURATION: number = 500;
 
 	constructor(
 		private readonly ctx: Ctx,
@@ -221,6 +220,19 @@ export class Game {
 			this.transitionTimeRemaining -= deltaTime;
 			ctx.fillStyle = this.transitionColor;
 			ctx.fillRect(0, 0, Constants.WIDTH, Constants.HEIGHT);
+			if (this.transitionColor === "black" || this.transitionColor === "white") {
+				if (this.transitionColor === "white") {
+					ctx.filter = "invert(1)";
+				}
+				ctx.drawImage(
+					this.helmetSpriteImage,
+					0,
+					0,
+					Constants.WIDTH,
+					Constants.HEIGHT,
+				);
+				ctx.filter = "none";
+			}
 			return;
 		}
 
@@ -361,7 +373,10 @@ export class Game {
 		// Track hearts collected before resetting
 		this.recordHeartsCollected();
 		console.log("loadLevel");
-		this.transitionTimeRemaining = Game.TRANSITION_DURATION;
+		this.transitionTimeRemaining =
+			this.transitionColor === "black"
+				? Constants.LONG_TRANSITION_DURATION
+				: Constants.TRANSITION_DURATION;
 		const levelShape = LEVELS[this.levelIndex]!;
 		this.level = initLevelFromShape(levelShape);
 		this.player.pos = { ...this.level.playerStartPos };

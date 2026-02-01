@@ -223,8 +223,8 @@ export class ThreeDee {
 				let heartG = heartSpriteTex.data[heartTexIdx + 1]!;
 				let heartB = heartSpriteTex.data[heartTexIdx + 2]!;
 
-				// Invert heart colors when even number of reflections (including isInMirror)
-				if ((numReflections + (this.game.isInMirror ? 1 : 0)) % 2 === 0) {
+				// Invert heart colors when odd number of reflections (including isInMirror)
+				if ((numReflections + (this.game.isInMirror ? 1 : 0)) % 2 === 1) {
 					heartR = 255 - heartR;
 					heartG = 255 - heartG;
 					heartB = 255 - heartB;
@@ -291,8 +291,7 @@ export class ThreeDee {
 				continue;
 			}
 
-			const v =
-				(yIdx + unclampedSpriteHeight) / (2 * unclampedSpriteHeight);
+			const v = (yIdx + unclampedSpriteHeight) / (2 * unclampedSpriteHeight);
 			const texY =
 				playerSpriteTex.height -
 				1 -
@@ -563,7 +562,8 @@ export class ThreeDee {
 		const helmetSpriteTex = this.helmetSpriteData!;
 		const frameTex = this.frameTextureData!;
 		const heartSpriteTex = this.heartSpriteData!;
-		const halfHeight = Constants.LOWRES_HEIGHT / 2 - Constants.CAMERA_HEIGHT_OFFSET;
+		const halfHeight =
+			Constants.LOWRES_HEIGHT / 2 - Constants.CAMERA_HEIGHT_OFFSET;
 
 		// Pre-compute texture dimensions and masks (assumes power-of-2 textures)
 		const floorTexW = floorTex.width;
@@ -903,18 +903,42 @@ export class ThreeDee {
 					if (vignetteMultiply < 0) {
 						// Darken towards black at edges
 						const factor = 1 - vignette * Math.abs(vignetteMultiply);
-						frameBuffer[idx] = Math.max(0, Math.min(255, frameBuffer[idx]! * factor));
-						frameBuffer[idx + 1] = Math.max(0, Math.min(255, frameBuffer[idx + 1]! * factor));
-						frameBuffer[idx + 2] = Math.max(0, Math.min(255, frameBuffer[idx + 2]! * factor));
+						frameBuffer[idx] = Math.max(
+							0,
+							Math.min(255, frameBuffer[idx]! * factor),
+						);
+						frameBuffer[idx + 1] = Math.max(
+							0,
+							Math.min(255, frameBuffer[idx + 1]! * factor),
+						);
+						frameBuffer[idx + 2] = Math.max(
+							0,
+							Math.min(255, frameBuffer[idx + 2]! * factor),
+						);
 					} else {
 						// Lighten towards white at edges
 						const factor = vignette * vignetteMultiply;
-						frameBuffer[idx] = Math.max(0, Math.min(255,
-							frameBuffer[idx]! + (255 - frameBuffer[idx]!) * factor));
-						frameBuffer[idx + 1] = Math.max(0, Math.min(255,
-							frameBuffer[idx + 1]! + (255 - frameBuffer[idx + 1]!) * factor));
-						frameBuffer[idx + 2] = Math.max(0, Math.min(255,
-							frameBuffer[idx + 2]! + (255 - frameBuffer[idx + 2]!) * factor));
+						frameBuffer[idx] = Math.max(
+							0,
+							Math.min(
+								255,
+								frameBuffer[idx]! + (255 - frameBuffer[idx]!) * factor,
+							),
+						);
+						frameBuffer[idx + 1] = Math.max(
+							0,
+							Math.min(
+								255,
+								frameBuffer[idx + 1]! + (255 - frameBuffer[idx + 1]!) * factor,
+							),
+						);
+						frameBuffer[idx + 2] = Math.max(
+							0,
+							Math.min(
+								255,
+								frameBuffer[idx + 2]! + (255 - frameBuffer[idx + 2]!) * factor,
+							),
+						);
 					}
 				}
 			}
