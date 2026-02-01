@@ -111,7 +111,7 @@ export class ThreeDee {
 		let blackPixels = 0;
 
 		for (const sprite of this.sprites) {
-			const hit = rayCircleIntersect(previousPos, segmentDir, sprite);
+			const hit = rayBillboardIntersect(previousPos, segmentDir, sprite);
 			if (!hit) continue;
 
 			// Check if sprite falls within this step (0 to stepDist from previousPos)
