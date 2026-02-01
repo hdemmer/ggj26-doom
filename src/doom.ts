@@ -80,7 +80,7 @@ export async function loadGameImages(): Promise<GameImages> {
 
 export class Game {
 	public time: number = 0;
-	public levelIndex: number = 0;
+	public levelIndex: number = 1;
 	public level: Level;
 	public readonly player: Player;
 	private readonly threeDee: ThreeDee;
@@ -105,6 +105,7 @@ export class Game {
 	public readonly health: Health = new Health();
 	public readonly hearts: Heart[] = [];
 	public isInMirror: boolean = false;
+	private hasMovedInLevel: boolean = false;
 
 	constructor(
 		private readonly ctx: Ctx,
@@ -204,6 +205,7 @@ export class Game {
 
 		const moveSpeed = 2;
 		if (this.keys.has("w") || this.keys.has("ArrowUp")) {
+			this.hasMovedInLevel = true;
 			const delta = {
 				x: Math.cos(player.angle) * moveSpeed,
 				y: Math.sin(player.angle) * moveSpeed,
@@ -223,6 +225,7 @@ export class Game {
 			}
 		}
 		if (this.keys.has("s") || this.keys.has("ArrowDown")) {
+			this.hasMovedInLevel = true;
 			const delta = {
 				x: -Math.cos(player.angle) * moveSpeed,
 				y: -Math.sin(player.angle) * moveSpeed,
@@ -236,8 +239,8 @@ export class Game {
 			}
 		}
 
-		if (this.levelIndex > 0 && this.levelIndex < LEVELS.length - 1) {
-			// don't update health on first and last levels
+		if (this.levelIndex > 0 && this.levelIndex < LEVELS.length - 1 && this.hasMovedInLevel) {
+			// don't update health on first and last levels, or before player has moved
 			this.health.update(deltaTime, this.isInMirror);
 			if (this.health.isAtLimit()) {
 				this.loadLevel();
@@ -271,6 +274,7 @@ export class Game {
 		this.player.pos = { ...this.level.playerStartPos };
 		this.player.angle = this.level.playerStartAngle;
 		this.isInMirror = false;
+		this.hasMovedInLevel = false;
 		this.hearts.length = 0;
 		for (const pos of this.level.heartPositions) {
 			this.hearts.push(new Heart(pos, this.threeDee));

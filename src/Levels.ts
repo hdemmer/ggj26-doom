@@ -7,11 +7,11 @@ const LEVEL0: LevelShape = {
 			y: 10,
 		},
 		{
-			x: 70,
+			x: 50,
 			y: 10,
 		},
 		{
-			x: 73,
+			x: 60,
 			y: 50,
 		},
 		{
@@ -43,6 +43,67 @@ const LEVEL0: LevelShape = {
 	playerStartAngle: 0,
 	mirrorIndices: [1, 7],
 	doorIndices: [4],
+};
+
+const CORRIDOR: LevelShape = {
+	polyline: [
+		{
+			x: 100,
+			y: 50,
+		},
+		{
+			x: 140,
+			y: 50,
+		},
+		{
+			x: 180,
+			y: 50,
+		},
+		{
+			x: 650,
+			y: 50,
+		},
+		{
+			x: 650,
+			y: 80,
+		},
+		{
+			x: 180,
+			y: 80,
+		},
+		{
+			x: 140,
+			y: 80,
+		},
+		{
+			x: 100,
+			y: 90,
+		},
+		{
+			x: 60,
+			y: 90,
+		},
+		{
+			x: 20,
+			y: 90,
+		},
+		{
+			x: 20,
+			y: 50,
+		},
+		{
+			x: 60,
+			y: 50,
+		},
+	],
+	heartPositions: [],
+	playerStartPos: {
+		x: 40,
+		y: 70,
+	},
+	playerStartAngle: 0,
+	mirrorIndices: [6],
+	doorIndices: [3],
 };
 
 const LEVEL1: LevelShape = {
@@ -155,4 +216,4 @@ const LEVEL2: LevelShape = {
 	doorIndices: [6],
 };
 
-export const LEVELS: LevelShape[] = [LEVEL0, LEVEL1, LEVEL2];
+export const LEVELS: LevelShape[] = [LEVEL0, CORRIDOR, LEVEL1, LEVEL2];
