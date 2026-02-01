@@ -8,6 +8,7 @@ import { Player } from "@/player.ts";
 import { propagateRayMut } from "@/propagateRayMut.ts";
 import type { Ray } from "@/ray.ts";
 import { rayBillboardIntersect } from "@/rayBillboardIntersect.ts";
+import { rayCircleIntersect } from "@/rayCircleIntersect.ts";
 
 export type SpriteType = "player" | "heart";
 
@@ -492,8 +493,10 @@ export class ThreeDee {
 					}
 
 					frameBuffer[fbIdx] = r * alpha + frameBuffer[fbIdx]! * invAlpha;
-					frameBuffer[fbIdx + 1] = g * alpha + frameBuffer[fbIdx + 1]! * invAlpha;
-					frameBuffer[fbIdx + 2] = b * alpha + frameBuffer[fbIdx + 2]! * invAlpha;
+					frameBuffer[fbIdx + 1] =
+						g * alpha + frameBuffer[fbIdx + 1]! * invAlpha;
+					frameBuffer[fbIdx + 2] =
+						b * alpha + frameBuffer[fbIdx + 2]! * invAlpha;
 				}
 			}
 		}
