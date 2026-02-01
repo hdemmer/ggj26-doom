@@ -46,6 +46,7 @@ export class ThreeDee {
 	private heartSpriteData: ImageData | null = null;
 	private instructionsTextureData: ImageData | null = null;
 	private endTextureData: ImageData | null = null;
+	private trueEndingTextureData: ImageData | null = null;
 	private textureCanvas: OffscreenCanvas | null = null;
 	private textureCtx: OffscreenCanvasRenderingContext2D | null = null;
 	public whiteMaskPixelCount: number = 0;
@@ -468,6 +469,11 @@ export class ThreeDee {
 		if (!this.endTextureData) {
 			this.endTextureData = this.extractTextureData(game.endImage);
 		}
+		if (!this.trueEndingTextureData) {
+			this.trueEndingTextureData = this.extractTextureData(
+				game.trueEndingImage,
+			);
+		}
 	}
 
 	getInstructionsTextureData(): ImageData | null {
@@ -478,6 +484,11 @@ export class ThreeDee {
 	getEndTextureData(): ImageData | null {
 		this.ensureTexturesExtracted();
 		return this.endTextureData;
+	}
+
+	getTrueEndingTextureData(): ImageData | null {
+		this.ensureTexturesExtracted();
+		return this.trueEndingTextureData;
 	}
 
 	private overlayTexture(tex: ImageData, frameBuffer: Uint8Array): void {
@@ -912,6 +923,8 @@ export class ThreeDee {
 		// Overlay instructions or end screen
 		if (game.getShowInstructions() && this.instructionsTextureData) {
 			this.overlayTexture(this.instructionsTextureData, frameBuffer);
+		} else if (game.getShowTrueEnding() && this.trueEndingTextureData) {
+			this.overlayTexture(this.trueEndingTextureData, frameBuffer);
 		} else if (game.getShowEnd() && this.endTextureData) {
 			this.overlayTexture(this.endTextureData, frameBuffer);
 		}

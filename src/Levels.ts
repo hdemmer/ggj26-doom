@@ -377,6 +377,105 @@ const ZIGZAG: LevelShape = {
 	healthMultiplier: 1,
 };
 
+const FORCE_HEARTS: LevelShape = {
+	polyline: [
+		{
+			x: 10,
+			y: 10,
+		},
+		{
+			x: 100,
+			y: 30,
+		},
+		{
+			x: 150,
+			y: 10,
+		},
+		{
+			x: 230,
+			y: 30,
+		},
+		{
+			x: 270,
+			y: 10,
+		},
+		{
+			x: 350,
+			y: 10,
+		},
+		{
+			x: 350,
+			y: 30,
+		},
+		{
+			x: 350,
+			y: 50,
+		},
+		{
+			x: 350,
+			y: 70,
+		},
+		{
+			x: 270,
+			y: 70,
+		},
+		{
+			x: 230,
+			y: 50,
+		},
+		{
+			x: 150,
+			y: 70,
+		},
+		{
+			x: 100,
+			y: 50,
+		},
+		{
+			x: 10,
+			y: 70,
+		},
+		{
+			x: 10,
+			y: 50,
+		},
+		{
+			x: 10,
+			y: 30,
+		},
+	],
+	heartPositions: [
+		{
+			x: 50,
+			y: 40,
+		},
+		{
+			x: 100,
+			y: 40,
+		},
+		{
+			x: 230,
+			y: 40,
+		},
+		{
+			x: 300,
+			y: 40,
+		},
+		{
+			x: 150,
+			y: 40,
+		},
+	],
+	playerStartPos: {
+		x: 30,
+		y: 40,
+	},
+	playerStartAngle: 0,
+	mirrorIndices: [14],
+	doorIndices: [6],
+	healthMultiplier: 2,
+};
+
 const HIDDEN_HEART: LevelShape = {
 	polyline: [
 		{
@@ -687,6 +786,7 @@ const BORING_CORRIDOR: LevelShape = {
 
 export const LEVELS: LevelShape[] = [
 	INTRO,
+	FORCE_HEARTS,
 	CORRIDOR,
 	LONG_LEVEL,
 	HIDDEN_HEART,

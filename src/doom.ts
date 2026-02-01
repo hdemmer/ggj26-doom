@@ -28,6 +28,18 @@ export interface GameImages {
 	heartSprite: HTMLImageElement;
 	instructions: HTMLImageElement;
 	end: HTMLImageElement;
+	trueEnding: HTMLImageElement;
+}
+
+// Asset URL mapping - can be overridden for embedded builds
+let assetUrls: Record<string, string> = {};
+
+export function setAssetUrls(urls: Record<string, string>) {
+	assetUrls = urls;
+}
+
+function getAssetUrl(name: string): string {
+	return assetUrls[name] || `/assets/${name}`;
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {
@@ -51,17 +63,19 @@ export async function loadGameImages(): Promise<GameImages> {
 		heartSprite,
 		instructions,
 		end,
+		trueEnding,
 	] = await Promise.all([
-		loadImage("/assets/floor.jpg"),
-		loadImage("/assets/ceiling.jpg"),
-		loadImage("/assets/wall.jpg"),
-		loadImage("/assets/door.png"),
-		loadImage("/assets/player.png"),
-		loadImage("/assets/mask.png"),
-		loadImage("/assets/frame.png"),
-		loadImage("/assets/heart.png"),
-		loadImage("/assets/instructions.png"),
-		loadImage("/assets/end.png"),
+		loadImage(getAssetUrl("floor.jpg")),
+		loadImage(getAssetUrl("ceiling.jpg")),
+		loadImage(getAssetUrl("wall.jpg")),
+		loadImage(getAssetUrl("door.png")),
+		loadImage(getAssetUrl("player.png")),
+		loadImage(getAssetUrl("mask.png")),
+		loadImage(getAssetUrl("frame.png")),
+		loadImage(getAssetUrl("heart.png")),
+		loadImage(getAssetUrl("instructions.png")),
+		loadImage(getAssetUrl("end.png")),
+		loadImage(getAssetUrl("true_ending.png")),
 	]);
 	console.log("All images loaded");
 	return {
@@ -75,6 +89,7 @@ export async function loadGameImages(): Promise<GameImages> {
 		heartSprite,
 		instructions,
 		end,
+		trueEnding,
 	};
 }
 
@@ -101,6 +116,7 @@ export class Game {
 	public readonly heartSpriteImage: HTMLImageElement;
 	public readonly instructionsImage: HTMLImageElement;
 	public readonly endImage: HTMLImageElement;
+	public readonly trueEndingImage: HTMLImageElement;
 	public readonly playerSprite: Sprite;
 	public readonly health: Health = new Health();
 	public readonly hearts: Heart[] = [];
@@ -146,6 +162,7 @@ export class Game {
 		this.heartSpriteImage = images.heartSprite;
 		this.instructionsImage = images.instructions;
 		this.endImage = images.end;
+		this.trueEndingImage = images.trueEnding;
 
 		this.threeDee = new ThreeDee(this);
 
@@ -173,7 +190,25 @@ export class Game {
 	}
 
 	getShowEnd() {
-		return this.levelIndex === LEVELS.length - 1;
+		return (
+			this.levelIndex === LEVELS.length - 1 && !this.hasCollectedAllHearts()
+		);
+	}
+
+	getShowTrueEnding() {
+		return (
+			this.levelIndex === LEVELS.length - 1 && this.hasCollectedAllHearts()
+		);
+	}
+
+	private hasCollectedAllHearts(): boolean {
+		for (let i = 0; i < this.totalHeartsPerLevel.length; i++) {
+			const total = this.totalHeartsPerLevel[i]!;
+			if (total === 0) continue;
+			const collected = this.maxHeartsCollected.get(i) ?? 0;
+			if (collected < total) return false;
+		}
+		return true;
 	}
 
 	tick(deltaTime: number) {
@@ -189,6 +224,16 @@ export class Game {
 		}
 
 		this.time += deltaTime;
+
+		// Lock controls on true ending
+		if (this.getShowTrueEnding()) {
+			this.castRay();
+			this.threeDee.update(this.health.getMultiplier());
+			ctx.fillStyle = "black";
+			ctx.fillRect(0, 0, Constants.WIDTH, Constants.HEIGHT);
+			this.threeDee.draw(ctx);
+			return;
+		}
 
 		// Handle input
 		const turnDir = this.isInMirror ? -1 : 1;
@@ -279,6 +324,9 @@ export class Game {
 				this.health.addInDirection(-1 * Constants.HEART_VALUE, this.isInMirror);
 				this.threeDee.removeSprite(heart.sprite);
 				this.hearts.splice(i, 1);
+				if (this.health.isAtLimit()) {
+					this.loadLevel();
+				}
 			}
 		}
 
@@ -442,7 +490,7 @@ export async function doom(ctx: Ctx) {
 	(window as any).game = game;
 
 	// Play background music
-	const music = new Audio("/assets/dronebeat.mp3");
+	const music = new Audio(getAssetUrl("dronebeat.mp3"));
 	music.loop = true;
 	music.play().catch((e) => {
 		// Autoplay may be blocked, start on first user interaction
