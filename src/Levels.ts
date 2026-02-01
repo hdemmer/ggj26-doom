@@ -7,46 +7,42 @@ const LEVEL0: LevelShape = {
 			y: 10,
 		},
 		{
-			x: 30,
+			x: 70,
 			y: 10,
 		},
 		{
-			x: 30,
-			y: 30,
-		},
-		{
-			x: 60,
-			y: 30,
-		},
-		{
-			x: 60,
+			x: 73,
 			y: 50,
+		},
+		{
+			x: 210,
+			y: 90,
+		},
+		{
+			x: 150,
+			y: 90,
+		},
+		{
+			x: 120,
+			y: 90,
 		},
 		{
 			x: 50,
-			y: 50,
-		},
-		{
-			x: 40,
-			y: 50,
+			y: 90,
 		},
 		{
 			x: 10,
 			y: 50,
-		},
-		{
-			x: 10,
-			y: 30,
 		},
 	],
 	heartPositions: [],
 	playerStartPos: {
-		x: 19,
-		y: 19,
+		x: 25.1,
+		y: 26.1,
 	},
-	playerStartAngle: 1,
-	mirrorIndices: [1, 8],
-	doorIndices: [5],
+	playerStartAngle: 0,
+	mirrorIndices: [1, 7],
+	doorIndices: [4],
 };
 
 const LEVEL1: LevelShape = {

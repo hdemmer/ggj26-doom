@@ -1,4 +1,4 @@
-const HEALTH_CHANGE_RATE = 25 / 1000; // units per second
+const HEALTH_CHANGE_RATE = 20 / 1000; // units per second
 const HEALTH_MAX = 100;
 
 export class Health {
