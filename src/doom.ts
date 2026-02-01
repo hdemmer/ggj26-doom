@@ -239,6 +239,9 @@ export class Game {
 		if (this.levelIndex > 0 && this.levelIndex < LEVELS.length - 1) {
 			// don't update health on first and last levels
 			this.health.update(deltaTime, this.isInMirror);
+			if (this.health.isAtLimit()) {
+				this.loadLevel();
+			}
 		}
 
 		this.playerSprite.pos.x = player.pos.x;

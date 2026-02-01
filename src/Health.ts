@@ -1,4 +1,4 @@
-const HEALTH_CHANGE_RATE = 5 / 1000; // units per second
+const HEALTH_CHANGE_RATE = 25 / 1000; // units per second
 const HEALTH_MAX = 100;
 
 export class Health {
@@ -22,5 +22,9 @@ export class Health {
 
 	reset() {
 		this.current = 0;
+	}
+
+	isAtLimit(): boolean {
+		return this.current >= HEALTH_MAX || this.current <= -HEALTH_MAX;
 	}
 }
