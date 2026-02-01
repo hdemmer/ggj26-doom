@@ -182,7 +182,7 @@ const CORRIDOR: LevelShape = {
 	],
 	heartPositions: [],
 	playerStartPos: {
-		x: 40,
+		x: 140,
 		y: 70,
 	},
 	playerStartAngle: 0,
@@ -303,4 +303,396 @@ const LEVEL2: LevelShape = {
 	healthMultiplier: 1,
 };
 
-export const LEVELS: LevelShape[] = [INTRO, ROOM, CORRIDOR, LEVEL1, LEVEL2];
+const ZIGZAG: LevelShape = {
+	polyline: [
+		{
+			x: 40,
+			y: 50,
+		},
+		{
+			x: 100,
+			y: 50,
+		},
+		{
+			x: 100,
+			y: 80,
+		},
+		{
+			x: 130,
+			y: 80,
+		},
+		{
+			x: 130,
+			y: 110,
+		},
+		{
+			x: 160,
+			y: 110,
+		},
+		{
+			x: 160,
+			y: 140,
+		},
+		{
+			x: 160,
+			y: 170,
+		},
+		{
+			x: 130,
+			y: 170,
+		},
+		{
+			x: 130,
+			y: 140,
+		},
+		{
+			x: 100,
+			y: 140,
+		},
+		{
+			x: 100,
+			y: 110,
+		},
+		{
+			x: 70,
+			y: 110,
+		},
+		{
+			x: 70,
+			y: 80,
+		},
+		{
+			x: 40,
+			y: 80,
+		},
+	],
+	heartPositions: [],
+	playerStartPos: {
+		x: 50,
+		y: 70,
+	},
+	playerStartAngle: 0,
+	mirrorIndices: [2, 6, 8, 9, 11],
+	doorIndices: [14],
+	healthMultiplier: 1,
+};
+
+const HIDDEN_HEART: LevelShape = {
+	polyline: [
+		{
+			x: 40,
+			y: 50,
+		},
+		{
+			x: 100,
+			y: 50,
+		},
+		{
+			x: 100,
+			y: 80,
+		},
+		{
+			x: 130,
+			y: 80,
+		},
+		{
+			x: 130,
+			y: 40,
+		},
+		{
+			x: 160,
+			y: 40,
+		},
+		{
+			x: 160,
+			y: 70,
+		},
+		{
+			x: 200,
+			y: 70,
+		},
+		{
+			x: 200,
+			y: 100,
+		},
+		{
+			x: 200,
+			y: 140,
+		},
+		{
+			x: 180,
+			y: 140,
+		},
+		{
+			x: 180,
+			y: 100,
+		},
+		{
+			x: 160,
+			y: 100,
+		},
+		{
+			x: 160,
+			y: 140,
+		},
+		{
+			x: 160,
+			y: 170,
+		},
+		{
+			x: 130,
+			y: 170,
+		},
+		{
+			x: 100,
+			y: 170,
+		},
+		{
+			x: 100,
+			y: 140,
+		},
+		{
+			x: 70,
+			y: 140,
+		},
+		{
+			x: 70,
+			y: 110,
+		},
+		{
+			x: 70,
+			y: 80,
+		},
+		{
+			x: 40,
+			y: 80,
+		},
+	],
+	heartPositions: [
+		{
+			x: 190,
+			y: 130,
+		},
+	],
+	playerStartPos: {
+		x: 50,
+		y: 70,
+	},
+	playerStartAngle: 0,
+	mirrorIndices: [2, 13, 15, 16, 18],
+	doorIndices: [21],
+	healthMultiplier: 3,
+};
+
+const LONG_LEVEL: LevelShape = {
+	polyline: [
+		{
+			x: 40,
+			y: 50,
+		},
+		{
+			x: 100,
+			y: 50,
+		},
+		{
+			x: 100,
+			y: 80,
+		},
+		{
+			x: 130,
+			y: 80,
+		},
+		{
+			x: 130,
+			y: 40,
+		},
+		{
+			x: 110,
+			y: 40,
+		},
+		{
+			x: 110,
+			y: 20,
+		},
+		{
+			x: 130,
+			y: 20,
+		},
+		{
+			x: 160,
+			y: 20,
+		},
+		{
+			x: 160,
+			y: 40,
+		},
+		{
+			x: 160,
+			y: 70,
+		},
+		{
+			x: 200,
+			y: 50,
+		},
+		{
+			x: 220,
+			y: 50,
+		},
+		{
+			x: 220,
+			y: 140,
+		},
+		{
+			x: 200,
+			y: 140,
+		},
+		{
+			x: 180,
+			y: 140,
+		},
+		{
+			x: 180,
+			y: 120,
+		},
+		{
+			x: 200,
+			y: 120,
+		},
+		{
+			x: 200,
+			y: 80,
+		},
+		{
+			x: 160,
+			y: 100,
+		},
+		{
+			x: 160,
+			y: 140,
+		},
+		{
+			x: 160,
+			y: 170,
+		},
+		{
+			x: 130,
+			y: 170,
+		},
+		{
+			x: 100,
+			y: 170,
+		},
+		{
+			x: 100,
+			y: 200,
+		},
+		{
+			x: 60,
+			y: 200,
+		},
+		{
+			x: 60,
+			y: 170,
+		},
+		{
+			x: 90,
+			y: 170,
+		},
+		{
+			x: 100,
+			y: 140,
+		},
+		{
+			x: 70,
+			y: 140,
+		},
+		{
+			x: 70,
+			y: 110,
+		},
+		{
+			x: 70,
+			y: 80,
+		},
+		{
+			x: 40,
+			y: 80,
+		},
+	],
+	heartPositions: [
+		{
+			x: 120,
+			y: 30,
+		},
+		{
+			x: 74,
+			y: 186,
+		},
+	],
+	playerStartPos: {
+		x: 50,
+		y: 70,
+	},
+	playerStartAngle: 0,
+	mirrorIndices: [2, 20, 29],
+	doorIndices: [14],
+	healthMultiplier: 2,
+};
+
+const BORING_CORRIDOR: LevelShape = {
+	polyline: [
+		{
+			x: 10,
+			y: 10,
+		},
+		{
+			x: 350,
+			y: 10,
+		},
+		{
+			x: 350,
+			y: 30,
+		},
+		{
+			x: 350,
+			y: 50,
+		},
+		{
+			x: 350,
+			y: 70,
+		},
+		{
+			x: 10,
+			y: 70,
+		},
+		{
+			x: 10,
+			y: 50,
+		},
+		{
+			x: 10,
+			y: 30,
+		},
+	],
+	heartPositions: [],
+	playerStartPos: {
+		x: 230,
+		y: 40,
+	},
+	playerStartAngle: Math.PI,
+	mirrorIndices: [2],
+	doorIndices: [6],
+	healthMultiplier: 5,
+};
+
+export const LEVELS: LevelShape[] = [
+	INTRO,
+	CORRIDOR,
+	LONG_LEVEL,
+	HIDDEN_HEART,
+	ZIGZAG,
+	ROOM,
+	CORRIDOR,
+	LEVEL1,
+	LEVEL2,
+];

@@ -145,6 +145,7 @@ export class ThreeDee {
 					hit.u,
 					halfHeight,
 					clut,
+					numReflections,
 					columnDepth,
 					frameBuffer,
 					heartSpriteTex,
@@ -184,6 +185,7 @@ export class ThreeDee {
 		u: number,
 		halfHeight: number,
 		clut: Clut,
+		numReflections: number,
 		columnDepth: Float32Array,
 		frameBuffer: Uint8Array,
 		heartSpriteTex: ImageData,
@@ -216,10 +218,21 @@ export class ThreeDee {
 			const heartAlpha = heartSpriteTex.data[heartTexIdx + 3]!;
 
 			if (heartAlpha >= 10) {
+				let heartR = heartSpriteTex.data[heartTexIdx]!;
+				let heartG = heartSpriteTex.data[heartTexIdx + 1]!;
+				let heartB = heartSpriteTex.data[heartTexIdx + 2]!;
+
+				// Invert heart colors when even number of reflections (including isInMirror)
+				if ((numReflections + (this.game.isInMirror ? 1 : 0)) % 2 === 0) {
+					heartR = 255 - heartR;
+					heartG = 255 - heartG;
+					heartB = 255 - heartB;
+				}
+
 				const color: Rgb8Color = {
-					r: heartSpriteTex.data[heartTexIdx]! * spriteBrightnessFactor,
-					g: heartSpriteTex.data[heartTexIdx + 1]! * spriteBrightnessFactor,
-					b: heartSpriteTex.data[heartTexIdx + 2]! * spriteBrightnessFactor,
+					r: heartR * spriteBrightnessFactor,
+					g: heartG * spriteBrightnessFactor,
+					b: heartB * spriteBrightnessFactor,
 				};
 				clut.applyMut(color);
 

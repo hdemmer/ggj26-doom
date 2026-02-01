@@ -106,6 +106,11 @@ export class Game {
 	public readonly hearts: Heart[] = [];
 	public isInMirror: boolean = false;
 	private hasMovedInLevel: boolean = false;
+	private initialHeartCount: number = 0;
+	private maxHeartsCollected: Map<number, number> = new Map();
+	public readonly totalHeartsPerLevel: number[] = LEVELS.map(
+		(level) => level.heartPositions.length,
+	);
 	private lastDistanceTravelled: number = 0;
 	private transitionTimeRemaining: number = 0;
 	private static readonly TRANSITION_DURATION: number = 1000;
@@ -271,7 +276,7 @@ export class Game {
 			const dy = player.pos.y - heart.pos.y;
 			const distance = Math.sqrt(dx * dx + dy * dy);
 			if (distance < player.size) {
-				this.health.addInDirection(-100, this.isInMirror);
+				this.health.addInDirection(-1 * Constants.HEART_VALUE, this.isInMirror);
 				this.threeDee.removeSprite(heart.sprite);
 				this.hearts.splice(i, 1);
 			}
@@ -298,6 +303,8 @@ export class Game {
 	}
 
 	private loadLevel() {
+		// Track hearts collected before resetting
+		this.recordHeartsCollected();
 		console.log("loadLevel");
 		this.transitionTimeRemaining = Game.TRANSITION_DURATION;
 		const levelShape = LEVELS[this.levelIndex]!;
@@ -314,7 +321,24 @@ export class Game {
 		for (const pos of this.level.heartPositions) {
 			this.hearts.push(new Heart(pos, this.threeDee));
 		}
+		this.initialHeartCount = this.hearts.length;
 		this.health.reset();
+	}
+
+	private recordHeartsCollected() {
+		if (this.initialHeartCount === 0) return;
+		const heartsCollected = this.initialHeartCount - this.hearts.length;
+		const currentMax = this.maxHeartsCollected.get(this.levelIndex) ?? 0;
+		if (heartsCollected > currentMax) {
+			this.maxHeartsCollected.set(this.levelIndex, heartsCollected);
+			console.log(
+				`Level ${this.levelIndex}: New max hearts collected: ${heartsCollected}`,
+			);
+		}
+	}
+
+	getMaxHeartsPerLevel(): Map<number, number> {
+		return new Map(this.maxHeartsCollected);
 	}
 
 	private debugDrawLevel(ctx: Ctx) {
@@ -416,6 +440,18 @@ export async function doom(ctx: Ctx) {
 	const images = await loadGameImages();
 	const game = new Game(ctx, images);
 	(window as any).game = game;
+
+	// Play background music
+	const music = new Audio("/assets/dronebeat.mp3");
+	music.loop = true;
+	music.play().catch((e) => {
+		// Autoplay may be blocked, start on first user interaction
+		const startMusic = () => {
+			music.play();
+			window.removeEventListener("keydown", startMusic);
+		};
+		window.addEventListener("keydown", startMusic);
+	});
 
 	let lastTime = performance.now();
 	function handleRaf(t: number) {
