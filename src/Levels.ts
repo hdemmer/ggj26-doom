@@ -194,55 +194,84 @@ const CORRIDOR: LevelShape = {
 const LEVEL1: LevelShape = {
 	polyline: [
 		{
-			x: 360,
-			y: 220,
+			x: 160,
+			y: 20,
 		},
 		{
-			x: 420,
-			y: 220,
+			x: 220,
+			y: 20,
 		},
 		{
-			x: 420,
-			y: 300,
+			x: 220,
+			y: 100,
 		},
 		{
-			x: 457,
-			y: 300,
+			x: 257,
+			y: 100,
 		},
 		{
-			x: 460,
-			y: 340,
+			x: 260,
+			y: 140,
 		},
 		{
-			x: 360,
-			y: 340,
+			x: 220,
+			y: 140,
 		},
 		{
-			x: 359,
-			y: 300,
+			x: 220,
+			y: 180,
 		},
 		{
-			x: 400,
-			y: 300,
+			x: 200,
+			y: 180,
 		},
 		{
-			x: 400,
-			y: 260,
+			x: 200,
+			y: 140,
 		},
 		{
-			x: 360,
-			y: 260,
+			x: 160,
+			y: 140,
+		},
+		{
+			x: 159,
+			y: 100,
+		},
+		{
+			x: 200,
+			y: 100,
+		},
+		{
+			x: 200,
+			y: 60,
+		},
+		{
+			x: 160,
+			y: 60,
+		},
+		{
+			x: 160,
+			y: 50,
+		},
+		{
+			x: 160,
+			y: 30,
 		},
 	],
-	heartPositions: [],
+	heartPositions: [
+		{
+			x: 210,
+			y: 170,
+		},
+	],
 	playerStartPos: {
-		x: 400,
-		y: 320,
+		x: 200,
+		y: 120,
 	},
 	playerStartAngle: 0,
-	mirrorIndices: [3, 5],
-	doorIndices: [9],
-	healthMultiplier: 1,
+	mirrorIndices: [3, 9],
+	doorIndices: [14],
+	healthMultiplier: 2,
 };
 
 const LEVEL2: LevelShape = {
@@ -824,14 +853,12 @@ const ENDING: LevelShape = {
 
 export const LEVELS: LevelShape[] = [
 	INTRO,
+	LEVEL1,
 	ZIGZAG,
+	HIDDEN_HEART,
 	FORCE_HEARTS,
 	CORRIDOR,
-	HIDDEN_HEART,
 	ROOM,
-	CORRIDOR,
-	LEVEL1,
 	LONG_LEVEL,
-	LEVEL2,
 	ENDING,
 ];

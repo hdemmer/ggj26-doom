@@ -202,13 +202,15 @@ export class Game {
 	}
 
 	private hasCollectedAllHearts(): boolean {
+		let sumCollected = 0;
+		let sumTotal = 0;
 		for (let i = 0; i < this.totalHeartsPerLevel.length; i++) {
-			const total = this.totalHeartsPerLevel[i]!;
-			if (total === 0) continue;
+			const total = this.totalHeartsPerLevel[i] ?? 0;
+			sumTotal += total;
 			const collected = this.maxHeartsCollected.get(i) ?? 0;
-			if (collected < total) return false;
+			sumCollected += collected;
 		}
-		return true;
+		return sumCollected >= sumTotal;
 	}
 
 	tick(deltaTime: number) {
@@ -220,7 +222,10 @@ export class Game {
 			this.transitionTimeRemaining -= deltaTime;
 			ctx.fillStyle = this.transitionColor;
 			ctx.fillRect(0, 0, Constants.WIDTH, Constants.HEIGHT);
-			if (this.transitionColor === "black" || this.transitionColor === "white") {
+			if (
+				this.transitionColor === "black" ||
+				this.transitionColor === "white"
+			) {
 				if (this.transitionColor === "white") {
 					ctx.filter = "invert(1)";
 				}
