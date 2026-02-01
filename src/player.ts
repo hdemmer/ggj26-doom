@@ -140,7 +140,79 @@ export class Player {
 		this.pos.x = currentX;
 		this.pos.y = currentY;
 
+		// Safety check: if player ended up outside the level, snap to closest point
+		if (!level.findSimplex(this.pos)) {
+			this.snapToLevel(level);
+		}
+
 		return { mirrorPassages, hitDoor };
+	}
+
+	/**
+	 * Brute-force snap the player to the closest point inside the level.
+	 */
+	private snapToLevel(level: Level): void {
+		let closestPoint: IVec2 | null = null;
+		let closestDistSq = Number.POSITIVE_INFINITY;
+
+		for (const simplex of level.simplices) {
+			// Check if player is inside this simplex
+			if (simplex.containsPoint(this.pos)) {
+				return; // Already inside, no need to snap
+			}
+
+			// Find closest point on each edge of the simplex
+			for (const side of simplex.sides) {
+				const closest = this.closestPointOnSegment(
+					this.pos,
+					side.start,
+					side.end,
+				);
+				const distSq =
+					(closest.x - this.pos.x) ** 2 + (closest.y - this.pos.y) ** 2;
+				if (distSq < closestDistSq) {
+					closestDistSq = distSq;
+					closestPoint = closest;
+				}
+			}
+		}
+
+		if (closestPoint) {
+			// Move slightly inside by pushing toward the simplex center
+			const targetSimplex = level.findSimplex(closestPoint);
+			if (targetSimplex) {
+				// Nudge toward center to ensure we're inside
+				const nudge = 0.1;
+				this.pos.x =
+					closestPoint.x + (targetSimplex.center.x - closestPoint.x) * nudge;
+				this.pos.y =
+					closestPoint.y + (targetSimplex.center.y - closestPoint.y) * nudge;
+			} else {
+				this.pos.x = closestPoint.x;
+				this.pos.y = closestPoint.y;
+			}
+		}
+	}
+
+	/**
+	 * Returns the closest point on line segment AB to point P.
+	 */
+	private closestPointOnSegment(p: IVec2, a: IVec2, b: IVec2): IVec2 {
+		const abX = b.x - a.x;
+		const abY = b.y - a.y;
+		const apX = p.x - a.x;
+		const apY = p.y - a.y;
+		const abLenSq = abX * abX + abY * abY;
+
+		if (abLenSq === 0) {
+			return { x: a.x, y: a.y };
+		}
+
+		const t = Math.max(0, Math.min(1, (apX * abX + apY * abY) / abLenSq));
+		return {
+			x: a.x + t * abX,
+			y: a.y + t * abY,
+		};
 	}
 
 	private reflectAngle(normal: IVec2): void {
