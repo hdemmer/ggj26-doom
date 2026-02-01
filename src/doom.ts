@@ -296,6 +296,9 @@ export class Game {
 		this.isInMirror = false;
 		this.hasMovedInLevel = false;
 		this.lastDistanceTravelled = this.player.distanceTravelled;
+		for (const heart of this.hearts) {
+			this.threeDee.removeSprite(heart.sprite);
+		}
 		this.hearts.length = 0;
 		for (const pos of this.level.heartPositions) {
 			this.hearts.push(new Heart(pos, this.threeDee));
