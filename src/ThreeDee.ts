@@ -903,18 +903,18 @@ export class ThreeDee {
 					if (vignetteMultiply < 0) {
 						// Darken towards black at edges
 						const factor = 1 - vignette * Math.abs(vignetteMultiply);
-						frameBuffer[idx] = frameBuffer[idx]! * factor;
-						frameBuffer[idx + 1] = frameBuffer[idx + 1]! * factor;
-						frameBuffer[idx + 2] = frameBuffer[idx + 2]! * factor;
+						frameBuffer[idx] = Math.max(0, Math.min(255, frameBuffer[idx]! * factor));
+						frameBuffer[idx + 1] = Math.max(0, Math.min(255, frameBuffer[idx + 1]! * factor));
+						frameBuffer[idx + 2] = Math.max(0, Math.min(255, frameBuffer[idx + 2]! * factor));
 					} else {
 						// Lighten towards white at edges
 						const factor = vignette * vignetteMultiply;
-						frameBuffer[idx] =
-							frameBuffer[idx]! + (255 - frameBuffer[idx]!) * factor;
-						frameBuffer[idx + 1] =
-							frameBuffer[idx + 1]! + (255 - frameBuffer[idx + 1]!) * factor;
-						frameBuffer[idx + 2] =
-							frameBuffer[idx + 2]! + (255 - frameBuffer[idx + 2]!) * factor;
+						frameBuffer[idx] = Math.max(0, Math.min(255,
+							frameBuffer[idx]! + (255 - frameBuffer[idx]!) * factor));
+						frameBuffer[idx + 1] = Math.max(0, Math.min(255,
+							frameBuffer[idx + 1]! + (255 - frameBuffer[idx + 1]!) * factor));
+						frameBuffer[idx + 2] = Math.max(0, Math.min(255,
+							frameBuffer[idx + 2]! + (255 - frameBuffer[idx + 2]!) * factor));
 					}
 				}
 			}

@@ -95,7 +95,7 @@ export async function loadGameImages(): Promise<GameImages> {
 
 export class Game {
 	public time: number = 0;
-	public levelIndex: number = 1;
+	public levelIndex: number = 0;
 	public level: Level;
 	public readonly player: Player;
 	private readonly threeDee: ThreeDee;
@@ -129,7 +129,8 @@ export class Game {
 	);
 	private lastDistanceTravelled: number = 0;
 	private transitionTimeRemaining: number = 0;
-	private static readonly TRANSITION_DURATION: number = 1000;
+	private transitionColor: string = "grey";
+	private static readonly TRANSITION_DURATION: number = 500;
 
 	constructor(
 		private readonly ctx: Ctx,
@@ -218,7 +219,7 @@ export class Game {
 		// Handle level transition
 		if (this.transitionTimeRemaining > 0) {
 			this.transitionTimeRemaining -= deltaTime;
-			ctx.fillStyle = "grey";
+			ctx.fillStyle = this.transitionColor;
 			ctx.fillRect(0, 0, Constants.WIDTH, Constants.HEIGHT);
 			return;
 		}
@@ -249,10 +250,12 @@ export class Game {
 
 			if (this.keys.has("r")) {
 				// reset level
+				this.transitionColor = "grey";
 				this.loadLevel();
 			}
 			if (this.keys.has("l")) {
 				// skip level
+				this.transitionColor = "grey";
 				this.levelIndex++;
 				if (this.levelIndex >= LEVELS.length) {
 					this.levelIndex = 0;
@@ -277,6 +280,7 @@ export class Game {
 			}
 			if (hitDoor) {
 				console.log("Hit door, next level");
+				this.transitionColor = "grey";
 				this.levelIndex++;
 				if (this.levelIndex >= LEVELS.length) {
 					// restart from first level
@@ -296,6 +300,7 @@ export class Game {
 				this.isInMirror = !this.isInMirror;
 			}
 			if (hitDoor) {
+				this.transitionColor = "grey";
 				this.loadLevel();
 			}
 		}
@@ -310,6 +315,7 @@ export class Game {
 				this.isInMirror,
 			);
 			if (this.health.isAtLimit()) {
+				this.transitionColor = this.health.current > 0 ? "white" : "black";
 				this.loadLevel();
 			}
 		}
@@ -325,6 +331,7 @@ export class Game {
 				this.threeDee.removeSprite(heart.sprite);
 				this.hearts.splice(i, 1);
 				if (this.health.isAtLimit()) {
+					this.transitionColor = this.health.current > 0 ? "white" : "black";
 					this.loadLevel();
 				}
 			}

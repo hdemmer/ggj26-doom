@@ -784,15 +784,54 @@ const BORING_CORRIDOR: LevelShape = {
 	healthMultiplier: 5,
 };
 
+const ENDING: LevelShape = {
+	polyline: [
+		{
+			x: 10,
+			y: 10,
+		},
+		{
+			x: 100,
+			y: 10,
+		},
+		{
+			x: 100,
+			y: 40,
+		},
+		{
+			x: 100,
+			y: 70,
+		},
+		{
+			x: 100,
+			y: 100,
+		},
+		{
+			x: 10,
+			y: 100,
+		},
+	],
+	heartPositions: [],
+	playerStartPos: {
+		x: 27,
+		y: 55,
+	},
+	playerStartAngle: 0,
+	mirrorIndices: [0, 4],
+	doorIndices: [2],
+	healthMultiplier: 0,
+};
+
 export const LEVELS: LevelShape[] = [
 	INTRO,
+	ZIGZAG,
 	FORCE_HEARTS,
 	CORRIDOR,
-	LONG_LEVEL,
 	HIDDEN_HEART,
-	ZIGZAG,
 	ROOM,
 	CORRIDOR,
 	LEVEL1,
+	LONG_LEVEL,
 	LEVEL2,
+	ENDING,
 ];
