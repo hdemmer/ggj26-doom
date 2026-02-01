@@ -76,6 +76,7 @@ export class Game {
 	public level: Level;
 	public readonly player: Player;
 	private readonly threeDee: ThreeDee;
+	private drawDebug: boolean = false;
 
 	private rayPoints: IVec2[] = [];
 
@@ -162,6 +163,21 @@ export class Game {
 		if (this.keys.has("d") || this.keys.has("ArrowRight")) {
 			player.angle += Constants.TURN_ANGLE_STEP * turnDir;
 		}
+		if (this.keys.has("r")) {
+			// reset level
+			this.loadLevel();
+		}
+		if (this.keys.has("l")) {
+			// skip level
+			this.levelIndex++;
+			if (this.levelIndex >= LEVELS.length) {
+				this.levelIndex = LEVELS.length - 1;
+			}
+			this.loadLevel();
+		}
+		if (this.keys.has("m")) {
+			this.drawDebug = !this.drawDebug;
+		}
 
 		const moveSpeed = 2;
 		if (this.keys.has("w") || this.keys.has("ArrowUp")) {
@@ -174,7 +190,13 @@ export class Game {
 				this.isInMirror = !this.isInMirror;
 			}
 			if (hitDoor) {
-				this.loadNextLevel();
+				console.log("Hit door, next level");
+				this.levelIndex++;
+				if (this.levelIndex >= LEVELS.length) {
+					// restart from first level
+					this.levelIndex = 0;
+				}
+				this.loadLevel();
 			}
 		}
 		if (this.keys.has("s") || this.keys.has("ArrowDown")) {
@@ -187,15 +209,14 @@ export class Game {
 				this.isInMirror = !this.isInMirror;
 			}
 			if (hitDoor) {
-				this.loadNextLevel();
+				this.loadLevel();
 			}
 		}
 
-		this.health.update(
-			deltaTime,
-			this.threeDee.whiteMaskPixelCount,
-			this.threeDee.blackMaskPixelCount,
-		);
+		if (this.levelIndex > 0 && this.levelIndex < LEVELS.length - 1) {
+			// don't update health on first and last levels
+			this.health.update(deltaTime, this.isInMirror);
+		}
 
 		this.playerSprite.pos.x = player.pos.x;
 		this.playerSprite.pos.y = player.pos.y;
@@ -211,18 +232,15 @@ export class Game {
 
 		this.threeDee.draw(ctx);
 
-		this.debugDrawLevel(ctx);
+		if (this.drawDebug) {
+			this.debugDrawLevel(ctx);
+		}
 		// this.debugDrawTextures(ctx);
 	}
 
-	private loadNextLevel() {
-		console.log("loadNextLevel");
-		const nextIndex = this.levelIndex + 1;
-		if (nextIndex >= LEVELS.length) {
-			return;
-		}
-		this.levelIndex = nextIndex;
-		const levelShape = LEVELS[nextIndex]!;
+	private loadLevel() {
+		console.log("loadLevel");
+		const levelShape = LEVELS[this.levelIndex]!;
 		this.level = initLevelFromShape(levelShape);
 		this.player.pos = { ...this.level.playerStartPos };
 		this.player.angle = levelShape.playerStartAngle ?? 0;

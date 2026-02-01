@@ -27,7 +27,7 @@ const LEVEL1: LevelShape = {
 			y: 340,
 		},
 		{
-			x: 360,
+			x: 359,
 			y: 300,
 		},
 		{

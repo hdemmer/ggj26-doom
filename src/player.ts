@@ -98,9 +98,6 @@ export class Player {
 					remainingDist -= hitDist;
 					sideIndex = side.simplex.findSideIndexForSimplex(simplex);
 					simplex = side.simplex;
-					if (side.isMirror) {
-						mirrorPassages++;
-					}
 				} else if (side.isMirror) {
 					// Reflect off mirror
 					currentX += dirX * hitDist;
@@ -116,6 +113,7 @@ export class Player {
 					this.reflectAngle(side.normal);
 
 					mirrorPassages++;
+					side.isMirror = false;
 					sideIndex = hitSideIndex;
 					if (side.isDoor) {
 						hitDoor = true;

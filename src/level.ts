@@ -25,7 +25,7 @@ export class Level {
 	}
 
 	draw(ctx: Ctx) {
-		const normalLength = 10;
+		const normalLength = 2;
 
 		for (let i = 0; i < this.simplices.length; i++) {
 			const simplex = this.simplices[i]!;

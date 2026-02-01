@@ -4,16 +4,9 @@ const HEALTH_MAX = 100;
 export class Health {
 	current: number = 0; // from -1 * HEALTH_MAX to HEALTH_MAX
 
-	update(deltaTime: number, whitePixels: number, blackPixels: number) {
-		let direction = 0;
-		direction = whitePixels - blackPixels;
-		// clamp direction between -1 and 1
-		if (direction > 1) {
-			direction = 1;
-		}
-		if (direction < -1) {
-			direction = -1;
-		}
+	update(deltaTime: number, isInMirror: boolean) {
+		const direction = isInMirror ? -1 : 1;
+
 		this.current += HEALTH_CHANGE_RATE * deltaTime * direction;
 		if (this.current > HEALTH_MAX) {
 			this.current = HEALTH_MAX;
