@@ -26,6 +26,8 @@ export interface GameImages {
 	helmetSprite: HTMLImageElement;
 	frame: HTMLImageElement;
 	heartSprite: HTMLImageElement;
+	instructions: HTMLImageElement;
+	end: HTMLImageElement;
 }
 
 function loadImage(src: string): Promise<HTMLImageElement> {
@@ -47,6 +49,8 @@ export async function loadGameImages(): Promise<GameImages> {
 		maskSprite,
 		frame,
 		heartSprite,
+		instructions,
+		end,
 	] = await Promise.all([
 		loadImage("/assets/floor.jpg"),
 		loadImage("/assets/ceiling.jpg"),
@@ -56,6 +60,8 @@ export async function loadGameImages(): Promise<GameImages> {
 		loadImage("/assets/mask.png"),
 		loadImage("/assets/frame.png"),
 		loadImage("/assets/heart.png"),
+		loadImage("/assets/instructions.png"),
+		loadImage("/assets/end.png"),
 	]);
 	console.log("All images loaded");
 	return {
@@ -67,6 +73,8 @@ export async function loadGameImages(): Promise<GameImages> {
 		helmetSprite: maskSprite,
 		frame,
 		heartSprite,
+		instructions,
+		end,
 	};
 }
 
@@ -81,6 +89,7 @@ export class Game {
 	private rayPoints: IVec2[] = [];
 
 	private keys: Set<string> = new Set();
+	private lastKeyTime: number = 0;
 
 	public readonly floorImage: HTMLImageElement;
 	public readonly ceilingImage: HTMLImageElement;
@@ -90,6 +99,8 @@ export class Game {
 	public readonly helmetSpriteImage: HTMLImageElement;
 	public readonly frameImage: HTMLImageElement;
 	public readonly heartSpriteImage: HTMLImageElement;
+	public readonly instructionsImage: HTMLImageElement;
+	public readonly endImage: HTMLImageElement;
 	public readonly playerSprite: Sprite;
 	public readonly health: Health = new Health();
 	public readonly hearts: Heart[] = [];
@@ -124,6 +135,8 @@ export class Game {
 		this.helmetSpriteImage = images.helmetSprite;
 		this.frameImage = images.frame;
 		this.heartSpriteImage = images.heartSprite;
+		this.instructionsImage = images.instructions;
+		this.endImage = images.end;
 
 		this.threeDee = new ThreeDee(this);
 
@@ -133,10 +146,7 @@ export class Game {
 			this.player.size,
 		);
 
-		// Spawn hearts at level positions
-		for (const pos of this.level.heartPositions) {
-			this.hearts.push(new Heart(pos, this.threeDee));
-		}
+		this.loadLevel();
 
 		this.castRay();
 		this.threeDee.update();
@@ -147,6 +157,14 @@ export class Game {
 		window.addEventListener("keyup", (e) => {
 			this.keys.delete(e.key);
 		});
+	}
+
+	getShowInstructions() {
+		return this.levelIndex === 0;
+	}
+
+	getShowEnd() {
+		return this.levelIndex === LEVELS.length - 1;
 	}
 
 	tick(deltaTime: number) {
@@ -163,20 +181,25 @@ export class Game {
 		if (this.keys.has("d") || this.keys.has("ArrowRight")) {
 			player.angle += Constants.TURN_ANGLE_STEP * turnDir;
 		}
-		if (this.keys.has("r")) {
-			// reset level
-			this.loadLevel();
-		}
-		if (this.keys.has("l")) {
-			// skip level
-			this.levelIndex++;
-			if (this.levelIndex >= LEVELS.length) {
-				this.levelIndex = LEVELS.length - 1;
+		const time = performance.now();
+		if (time - this.lastKeyTime > 100) {
+			this.lastKeyTime = time;
+
+			if (this.keys.has("r")) {
+				// reset level
+				this.loadLevel();
 			}
-			this.loadLevel();
-		}
-		if (this.keys.has("m")) {
-			this.drawDebug = !this.drawDebug;
+			if (this.keys.has("l")) {
+				// skip level
+				this.levelIndex++;
+				if (this.levelIndex >= LEVELS.length) {
+					this.levelIndex = 0;
+				}
+				this.loadLevel();
+			}
+			if (this.keys.has("m")) {
+				this.drawDebug = !this.drawDebug;
+			}
 		}
 
 		const moveSpeed = 2;
@@ -243,7 +266,7 @@ export class Game {
 		const levelShape = LEVELS[this.levelIndex]!;
 		this.level = initLevelFromShape(levelShape);
 		this.player.pos = { ...this.level.playerStartPos };
-		this.player.angle = levelShape.playerStartAngle ?? 0;
+		this.player.angle = this.level.playerStartAngle;
 		this.isInMirror = false;
 		this.hearts.length = 0;
 		for (const pos of this.level.heartPositions) {

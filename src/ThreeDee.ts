@@ -7,7 +7,7 @@ import type { IVec2 } from "@/IVec2.ts";
 import { Player } from "@/player.ts";
 import { propagateRayMut } from "@/propagateRayMut.ts";
 import type { Ray } from "@/ray.ts";
-import { rayCircleIntersect } from "@/rayCircleIntersect.ts";
+import { rayBillboardIntersect } from "@/rayBillboardIntersect.ts";
 
 export type SpriteType = "player" | "heart";
 
@@ -43,6 +43,8 @@ export class ThreeDee {
 	private helmetSpriteData: ImageData | null = null;
 	private frameTextureData: ImageData | null = null;
 	private heartSpriteData: ImageData | null = null;
+	private instructionsTextureData: ImageData | null = null;
+	private endTextureData: ImageData | null = null;
 	private textureCanvas: OffscreenCanvas | null = null;
 	private textureCtx: OffscreenCanvasRenderingContext2D | null = null;
 	public whiteMaskPixelCount: number = 0;
@@ -433,6 +435,68 @@ export class ThreeDee {
 		if (!this.heartSpriteData) {
 			this.heartSpriteData = this.extractTextureData(game.heartSpriteImage);
 		}
+		if (!this.instructionsTextureData) {
+			this.instructionsTextureData = this.extractTextureData(
+				game.instructionsImage,
+			);
+		}
+		if (!this.endTextureData) {
+			this.endTextureData = this.extractTextureData(game.endImage);
+		}
+	}
+
+	getInstructionsTextureData(): ImageData | null {
+		this.ensureTexturesExtracted();
+		return this.instructionsTextureData;
+	}
+
+	getEndTextureData(): ImageData | null {
+		this.ensureTexturesExtracted();
+		return this.endTextureData;
+	}
+
+	private overlayTexture(tex: ImageData, frameBuffer: Uint8Array): void {
+		const texW = tex.width;
+		const texH = tex.height;
+		const fbW = Constants.LOWRES_WIDTH;
+		const fbH = Constants.LOWRES_HEIGHT;
+		const invert = this.game.isInMirror;
+
+		// Center the texture on the framebuffer
+		const offsetX = Math.floor((fbW - texW) / 2);
+		const offsetY = Math.floor((fbH - texH) / 2);
+
+		for (let ty = 0; ty < texH; ty++) {
+			const fbY = offsetY + ty;
+			if (fbY < 0 || fbY >= fbH) continue;
+
+			for (let tx = 0; tx < texW; tx++) {
+				const fbX = offsetX + tx;
+				if (fbX < 0 || fbX >= fbW) continue;
+
+				const texIdx = (ty * texW + tx) * 4;
+				const alpha = tex.data[texIdx + 3]! / 255;
+
+				if (alpha > 0) {
+					const fbIdx = (fbY * fbW + fbX) * 4;
+					const invAlpha = 1 - alpha;
+
+					let r = tex.data[texIdx]!;
+					let g = tex.data[texIdx + 1]!;
+					let b = tex.data[texIdx + 2]!;
+
+					if (invert) {
+						r = 255 - r;
+						g = 255 - g;
+						b = 255 - b;
+					}
+
+					frameBuffer[fbIdx] = r * alpha + frameBuffer[fbIdx]! * invAlpha;
+					frameBuffer[fbIdx + 1] = g * alpha + frameBuffer[fbIdx + 1]! * invAlpha;
+					frameBuffer[fbIdx + 2] = b * alpha + frameBuffer[fbIdx + 2]! * invAlpha;
+				}
+			}
+		}
 	}
 
 	update(vignetteMultiply: number = 0) {
@@ -816,6 +880,13 @@ export class ThreeDee {
 					}
 				}
 			}
+		}
+
+		// Overlay instructions or end screen
+		if (game.getShowInstructions() && this.instructionsTextureData) {
+			this.overlayTexture(this.instructionsTextureData, frameBuffer);
+		} else if (game.getShowEnd() && this.endTextureData) {
+			this.overlayTexture(this.endTextureData, frameBuffer);
 		}
 
 		this.whiteMaskPixelCount = whiteHelmetPixelCount;
