@@ -107,6 +107,8 @@ export class Game {
 	public isInMirror: boolean = false;
 	private hasMovedInLevel: boolean = false;
 	private lastDistanceTravelled: number = 0;
+	private transitionTimeRemaining: number = 0;
+	private static readonly TRANSITION_DURATION: number = 1000;
 
 	constructor(
 		private readonly ctx: Ctx,
@@ -172,6 +174,14 @@ export class Game {
 	tick(deltaTime: number) {
 		const { ctx } = this;
 		const { level, player } = this;
+
+		// Handle level transition
+		if (this.transitionTimeRemaining > 0) {
+			this.transitionTimeRemaining -= deltaTime;
+			ctx.fillStyle = "grey";
+			ctx.fillRect(0, 0, Constants.WIDTH, Constants.HEIGHT);
+			return;
+		}
 
 		this.time += deltaTime;
 
@@ -289,6 +299,7 @@ export class Game {
 
 	private loadLevel() {
 		console.log("loadLevel");
+		this.transitionTimeRemaining = Game.TRANSITION_DURATION;
 		const levelShape = LEVELS[this.levelIndex]!;
 		this.level = initLevelFromShape(levelShape);
 		this.player.pos = { ...this.level.playerStartPos };
