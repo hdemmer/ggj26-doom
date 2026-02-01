@@ -191,7 +191,7 @@ export class ThreeDee {
 		const heartTexX = Math.floor(u * (heartSpriteTex.width - 1));
 
 		for (let yIdx = -spriteHeight; yIdx < spriteHeight; yIdx++) {
-			const yScreen = halfHeight - yIdx + Constants.PLAYER_Y_FUDGE;
+			const yScreen = halfHeight - yIdx;
 			if (
 				yScreen < 0 ||
 				yScreen >= Constants.LOWRES_HEIGHT ||
@@ -264,8 +264,11 @@ export class ThreeDee {
 		};
 		const facingCamera = Player.isFacingTowards(spriteFacingDir, segmentDir);
 
+		// Offset to move sprite down so feet touch floor (0.5 = half sprite height)
+		const yOffset = Math.floor(spriteHeight * Constants.PLAYER_Y_FUDGE);
+
 		for (let yIdx = -spriteHeight; yIdx < spriteHeight; yIdx++) {
-			const yScreen = halfHeight - yIdx + Constants.PLAYER_Y_FUDGE;
+			const yScreen = halfHeight - yIdx + yOffset;
 			if (
 				yScreen < 0 ||
 				yScreen >= Constants.LOWRES_HEIGHT ||
@@ -274,7 +277,8 @@ export class ThreeDee {
 				continue;
 			}
 
-			const v = (yIdx + unclampedSpriteHeight) / (2 * unclampedSpriteHeight);
+			const v =
+				(yIdx + unclampedSpriteHeight) / (2 * unclampedSpriteHeight);
 			const texY =
 				playerSpriteTex.height -
 				1 -
@@ -535,7 +539,7 @@ export class ThreeDee {
 		const helmetSpriteTex = this.helmetSpriteData!;
 		const frameTex = this.frameTextureData!;
 		const heartSpriteTex = this.heartSpriteData!;
-		const halfHeight = Constants.LOWRES_HEIGHT / 2;
+		const halfHeight = Constants.LOWRES_HEIGHT / 2 - Constants.CAMERA_HEIGHT_OFFSET;
 
 		// Pre-compute texture dimensions and masks (assumes power-of-2 textures)
 		const floorTexW = floorTex.width;

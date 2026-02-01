@@ -7,4 +7,5 @@ export interface LevelShape {
 	playerStartAngle: number;
 	mirrorIndices: number[]; // Indices of the polyline that are mirrors
 	doorIndices: number[]; // Indices of the polyline that are doors
+	healthMultiplier: number;
 }

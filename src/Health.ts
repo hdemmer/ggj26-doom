@@ -1,13 +1,13 @@
-const HEALTH_CHANGE_RATE = 20 / 1000; // units per second
+const HEALTH_CHANGE_RATE = 0.1; // units per distance unit
 const HEALTH_MAX = 100;
 
 export class Health {
 	current: number = 0; // from -1 * HEALTH_MAX to HEALTH_MAX
 
-	update(deltaTime: number, isInMirror: boolean) {
+	update(distanceDelta: number, isInMirror: boolean) {
 		const direction = isInMirror ? -1 : 1;
 
-		this.current += HEALTH_CHANGE_RATE * deltaTime * direction;
+		this.current += HEALTH_CHANGE_RATE * distanceDelta * direction;
 		if (this.current > HEALTH_MAX) {
 			this.current = HEALTH_MAX;
 		}
@@ -17,7 +17,7 @@ export class Health {
 	}
 
 	getMultiplier(): number {
-		return (this.current / HEALTH_MAX) * 4;
+		return (this.current / HEALTH_MAX) * 2;
 	}
 
 	reset() {

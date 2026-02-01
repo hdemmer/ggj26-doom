@@ -106,6 +106,7 @@ export class Game {
 	public readonly hearts: Heart[] = [];
 	public isInMirror: boolean = false;
 	private hasMovedInLevel: boolean = false;
+	private lastDistanceTravelled: number = 0;
 
 	constructor(
 		private readonly ctx: Ctx,
@@ -239,9 +240,15 @@ export class Game {
 			}
 		}
 
-		if (this.levelIndex > 0 && this.levelIndex < LEVELS.length - 1 && this.hasMovedInLevel) {
+		if (this.hasMovedInLevel) {
 			// don't update health on first and last levels, or before player has moved
-			this.health.update(deltaTime, this.isInMirror);
+			const distanceDelta =
+				player.distanceTravelled - this.lastDistanceTravelled;
+			this.lastDistanceTravelled = player.distanceTravelled;
+			this.health.update(
+				distanceDelta * level.healthMultiplier,
+				this.isInMirror,
+			);
 			if (this.health.isAtLimit()) {
 				this.loadLevel();
 			}
@@ -288,6 +295,7 @@ export class Game {
 		this.player.angle = this.level.playerStartAngle;
 		this.isInMirror = false;
 		this.hasMovedInLevel = false;
+		this.lastDistanceTravelled = this.player.distanceTravelled;
 		this.hearts.length = 0;
 		for (const pos of this.level.heartPositions) {
 			this.hearts.push(new Heart(pos, this.threeDee));

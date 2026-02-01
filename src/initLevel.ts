@@ -113,9 +113,17 @@ export function initLevelFromShape(levelShape: LevelShape): Level {
 		playerStartAngle,
 		mirrorIndices,
 		doorIndices,
+		healthMultiplier,
 	} = levelShape;
 	if (polyline.length < 3) {
 		throw new Error("Polyline must have at least 3 points");
+	}
+
+	// apply random jitter to polyline points to avoid degenerate cases
+	const jitterAmount = 0.1;
+	for (const p of polyline) {
+		p.x += Math.random() * jitterAmount;
+		p.y += Math.random() * jitterAmount;
 	}
 
 	// Flatten polygon for earcut
@@ -184,6 +192,7 @@ export function initLevelFromShape(levelShape: LevelShape): Level {
 		heartPositions,
 		playerStartPos,
 		playerStartAngle,
+		healthMultiplier,
 	);
 }
 

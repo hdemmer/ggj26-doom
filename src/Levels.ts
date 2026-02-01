@@ -1,6 +1,6 @@
 import type { LevelShape } from "@/LevelShape.ts";
 
-const LEVEL0: LevelShape = {
+const INTRO: LevelShape = {
 	polyline: [
 		{
 			x: 10,
@@ -43,6 +43,7 @@ const LEVEL0: LevelShape = {
 	playerStartAngle: 0,
 	mirrorIndices: [1, 7],
 	doorIndices: [4],
+	healthMultiplier: 0,
 };
 
 const ROOM: LevelShape = {
@@ -125,6 +126,7 @@ const ROOM: LevelShape = {
 	playerStartAngle: 0,
 	mirrorIndices: [3, 5, 10, 15],
 	doorIndices: [8],
+	healthMultiplier: 1,
 };
 
 const CORRIDOR: LevelShape = {
@@ -186,6 +188,7 @@ const CORRIDOR: LevelShape = {
 	playerStartAngle: 0,
 	mirrorIndices: [6],
 	doorIndices: [3],
+	healthMultiplier: 2,
 };
 
 const LEVEL1: LevelShape = {
@@ -239,6 +242,7 @@ const LEVEL1: LevelShape = {
 	playerStartAngle: 0,
 	mirrorIndices: [3, 5],
 	doorIndices: [9],
+	healthMultiplier: 1,
 };
 
 const LEVEL2: LevelShape = {
@@ -296,6 +300,7 @@ const LEVEL2: LevelShape = {
 	playerStartAngle: 0,
 	mirrorIndices: [2, 4, 8],
 	doorIndices: [6],
+	healthMultiplier: 1,
 };
 
-export const LEVELS: LevelShape[] = [LEVEL0, ROOM, CORRIDOR, LEVEL1, LEVEL2];
+export const LEVELS: LevelShape[] = [INTRO, ROOM, CORRIDOR, LEVEL1, LEVEL2];

@@ -12,6 +12,7 @@ export class Level {
 		public readonly heartPositions: IVec2[] = [],
 		public readonly playerStartPos: IVec2 = { x: 160, y: 170 },
 		public readonly playerStartAngle: number = 0,
+		public readonly healthMultiplier: number = 1,
 	) {}
 
 	findSimplex(p: IVec2): Simplex | null {
