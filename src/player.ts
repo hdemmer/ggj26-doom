@@ -119,11 +119,57 @@ export class Player {
 						hitDoor = true;
 					}
 				} else {
-					// Hit wall - stop at wall minus player size
+					// Hit wall - slide along it
 					const stopDist = Math.max(0, hitDist - this.size);
 					currentX += dirX * stopDist;
 					currentY += dirY * stopDist;
-					remainingDist = 0;
+
+					const leftover = remainingDist - stopDist;
+					if (leftover > 0.001) {
+						// Project movement onto wall direction (perpendicular to normal)
+						const wallDirX = -side.normal.y;
+						const wallDirY = side.normal.x;
+
+						// How much of our movement goes along the wall
+						const dot = dirX * wallDirX + dirY * wallDirY;
+
+						// Only slide if there's meaningful parallel component
+						if (Math.abs(dot) > 0.001) {
+							// Update direction to slide along wall
+							if (dot >= 0) {
+								dirX = wallDirX;
+								dirY = wallDirY;
+							} else {
+								dirX = -wallDirX;
+								dirY = -wallDirY;
+							}
+
+							// Gently rotate player towards slide direction if facing into wall
+							const facingX = Math.cos(this.angle);
+							const facingY = Math.sin(this.angle);
+							const facingIntoWall =
+								facingX * side.normal.x + facingY * side.normal.y < 0;
+
+							if (facingIntoWall) {
+								const slideAngle = Math.atan2(dirY, dirX);
+								let angleDiff = slideAngle - this.angle;
+								// Normalize to [-π, π]
+								while (angleDiff > Math.PI) angleDiff -= 2 * Math.PI;
+								while (angleDiff < -Math.PI) angleDiff += 2 * Math.PI;
+								this.angle += angleDiff * 0.15;
+							}
+
+							// Remaining distance is the projected component
+							remainingDist = Math.abs(dot) * leftover;
+
+							// Remember this side to avoid immediately re-hitting it
+							sideIndex = hitSideIndex;
+						} else {
+							remainingDist = 0;
+						}
+					} else {
+						remainingDist = 0;
+					}
 				}
 			} else {
 				// No hit, move full remaining distance
