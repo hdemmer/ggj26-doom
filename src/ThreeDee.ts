@@ -84,6 +84,13 @@ export class ThreeDee {
 		return sprite;
 	}
 
+	removeSprite(sprite: Sprite) {
+		const index = this.sprites.indexOf(sprite);
+		if (index !== -1) {
+			this.sprites.splice(index, 1);
+		}
+	}
+
 	private renderSpritesForColumn(
 		x: number,
 		previousPos: IVec2,

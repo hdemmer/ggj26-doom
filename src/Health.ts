@@ -27,4 +27,15 @@ export class Health {
 	isAtLimit(): boolean {
 		return this.current >= HEALTH_MAX || this.current <= -HEALTH_MAX;
 	}
+
+	addInDirection(amount: number, isInMirror: boolean) {
+		const direction = isInMirror ? -1 : 1;
+		this.current += amount * direction;
+		if (this.current > HEALTH_MAX) {
+			this.current = HEALTH_MAX;
+		}
+		if (this.current < -HEALTH_MAX) {
+			this.current = -HEALTH_MAX;
+		}
+	}
 }

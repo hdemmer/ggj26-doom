@@ -247,6 +247,19 @@ export class Game {
 			}
 		}
 
+		// Check heart collection
+		for (let i = this.hearts.length - 1; i >= 0; i--) {
+			const heart = this.hearts[i]!;
+			const dx = player.pos.x - heart.pos.x;
+			const dy = player.pos.y - heart.pos.y;
+			const distance = Math.sqrt(dx * dx + dy * dy);
+			if (distance < player.size) {
+				this.health.addInDirection(-100, this.isInMirror);
+				this.threeDee.removeSprite(heart.sprite);
+				this.hearts.splice(i, 1);
+			}
+		}
+
 		this.playerSprite.pos.x = player.pos.x;
 		this.playerSprite.pos.y = player.pos.y;
 		this.playerSprite.size = player.size;
